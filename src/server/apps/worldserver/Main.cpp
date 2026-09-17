@@ -19,6 +19,7 @@
 /// @{
 /// \file
 
+#include <cstdio>
 #include "ACSoap.h"
 #include "AppenderDB.h"
 #include "AsyncAcceptor.h"
@@ -578,10 +579,13 @@ void WorldUpdateLoop()
 
     sScriptMgr->OnDatabaseWarnAboutSyncQueries(true);
 
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Main] WorldUpdateLoop ENTERING main loop\n"); fclose(f); } }
     ///- While we have not World::m_stopEvent, update the world
+    uint32 loopCount = 0;
     while (!World::IsStopped())
     {
         ++World::m_worldLoopCounter;
+        ++loopCount;
         realCurrTime = getMSTime();
 
         uint32 diff = getMSTimeDiff(realPrevTime, realCurrTime);
@@ -594,6 +598,9 @@ void WorldUpdateLoop()
             std::this_thread::sleep_for(Milliseconds(sleepTime));
             continue;
         }
+
+        if (loopCount <= 10 || loopCount % 500 == 0)
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Main] WorldUpdateLoop iteration=%u diff=%u\n", loopCount, diff); fclose(f); } }
 
         sWorld->Update(diff);
         realPrevTime = realCurrTime;

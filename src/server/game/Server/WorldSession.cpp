@@ -19,6 +19,7 @@
     \ingroup u2w
 */
 
+#include <cstdio>
 #include "WorldSession.h"
 #include "AccountMgr.h"
 #include "BattlegroundMgr.h"
@@ -1506,18 +1507,22 @@ public:
 
 void WorldSession::InitializeSession()
 {
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Session] InitializeSession account=%u\n", GetAccountId()); fclose(f); } }
     uint32 cacheVersion = sWorld->getIntConfig(CONFIG_CLIENTCACHE_VERSION);
     sScriptMgr->OnBeforeFinalizePlayerWorldSession(cacheVersion);
 
     std::shared_ptr<AccountInfoQueryHolderPerRealm> realmHolder = std::make_shared<AccountInfoQueryHolderPerRealm>();
     if (!realmHolder->Initialize(GetAccountId()))
     {
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Session] InitializeSession FAILED (query holder init) account=%u\n", GetAccountId()); fclose(f); } }
         SendAuthResponse(AUTH_SYSTEM_ERROR, false);
         return;
     }
 
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Session] InitializeSession: DelayQueryHolder submitted for account=%u\n", GetAccountId()); fclose(f); } }
     AddQueryHolderCallback(CharacterDatabase.DelayQueryHolder(realmHolder)).AfterComplete([this, cacheVersion](SQLQueryHolderBase const& holder)
     {
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Session] InitializeSessionCallback FIRED account=%u\n", GetAccountId()); fclose(f); } }
         InitializeSessionCallback(static_cast<AccountInfoQueryHolderPerRealm const&>(holder), cacheVersion);
     });
 }

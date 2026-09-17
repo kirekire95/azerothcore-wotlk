@@ -15,6 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstdio>
 #include "WorldSocket.h"
 #include "AccountMgr.h"
 #include "Config.h"
@@ -428,22 +429,26 @@ WorldSocket::ReadDataHandlerResult WorldSocket::ReadDataHandler()
         }
         case CMSG_AUTH_SESSION:
         {
+            { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] CMSG_AUTH_SESSION received from %s size=%zu\n", GetRemoteIpAddress().to_string().c_str(), packet.size()); fclose(f); } }
             LogOpcodeText(opcode, sessionGuard);
             if (_authed)
             {
                 // locking just to safely log offending user is probably overkill but we are disconnecting him anyway
                 if (sessionGuard.try_lock())
                     LOG_ERROR("network", "WorldSocket::ProcessIncoming: received duplicate CMSG_AUTH_SESSION from {}", _worldSession->GetPlayerInfo());
+                { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] CMSG_AUTH_SESSION REJECTED (duplicate)\n"); fclose(f); } }
                 return ReadDataHandlerResult::Error;
             }
 
             try
             {
                 HandleAuthSession(packet);
+                { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] HandleAuthSession OK, WaitingForQuery\n"); fclose(f); } }
                 return ReadDataHandlerResult::WaitingForQuery;
             }
             catch (ByteBufferException const&) { }
 
+            { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] CMSG_AUTH_SESSION MALFORMED (ByteBufferException)\n"); fclose(f); } }
             LOG_ERROR("network", "WorldSocket::ReadDataHandler(): client {} sent malformed CMSG_AUTH_SESSION", GetRemoteIpAddress().to_string());
             return ReadDataHandlerResult::Error;
         }
@@ -554,11 +559,13 @@ void WorldSocket::HandleAuthSession(WorldPacket & recvPacket)
 
 void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<ClientAuthSession> authSession, PreparedQueryResult result)
 {
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] HandleAuthSessionCallback for account='%s' hasResult=%d\n", authSession->Account.c_str(), result ? 1 : 0); fclose(f); } }
     // Stop if the account is not found
     if (!result)
     {
         // We can not log here, as we do not know the account. Thus, no accountId.
         SendAuthResponseError(AUTH_UNKNOWN_ACCOUNT);
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] AUTH FAILED: unknown account '%s'\n", authSession->Account.c_str()); fclose(f); } }
         LOG_ERROR("network", "WorldSocket::HandleAuthSession: Sent Auth Response (unknown account).");
         DelayedCloseSocket();
         return;
@@ -593,6 +600,7 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<ClientAuthSession> a
     if (authSession->RealmID != realm.Id.Realm)
     {
         SendAuthResponseError(REALM_LIST_REALM_NOT_FOUND);
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] AUTH FAILED: realm mismatch client=%u server=%u\n", authSession->RealmID, realm.Id.Realm); fclose(f); } }
         LOG_ERROR("network", "WorldSocket::HandleAuthSession: Client {} requested connecting with realm id {} but this realm has id {} set in config.",
             GetRemoteIpAddress().to_string(), authSession->RealmID, realm.Id.Realm);
         DelayedCloseSocket();
@@ -623,10 +631,12 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<ClientAuthSession> a
     if (sha.GetDigest() != authSession->Digest)
     {
         SendAuthResponseError(AUTH_FAILED);
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] AUTH FAILED: digest mismatch account='%s' id=%u\n", authSession->Account.c_str(), account.Id); fclose(f); } }
         LOG_ERROR("network", "WorldSocket::HandleAuthSession: Authentication failed for account: {} ('{}') address: {}", account.Id, authSession->Account, address);
         DelayedCloseSocket();
         return;
     }
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] AUTH SUCCESS: digest matched account='%s' id=%u\n", authSession->Account.c_str(), account.Id); fclose(f); } }
 
     if (IpLocationRecord const* location = sIPLocation->GetLocationRecord(address))
         _ipCountry = location->CountryCode;
@@ -718,6 +728,7 @@ void WorldSocket::HandleAuthSessionCallback(std::shared_ptr<ClientAuthSession> a
 
     _worldSession->ValidateAccountFlags();
 
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[WorldSocket] AddSession ENQUEUE account=%u ptr=%p\n", account.Id, (void*)_worldSession); fclose(f); } }
     sWorldSessionMgr->AddSession(_worldSession);
 
     AsyncRead();

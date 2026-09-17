@@ -15,6 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstdio>
 #include "Chat.h"
 #include "ChatPackets.h"
 #include "GameTime.h"
@@ -91,6 +92,9 @@ WorldSession* WorldSessionMgr::FindOfflineSessionForCharacterGUID(ObjectGuid::Lo
 
 void WorldSessionMgr::UpdateSessions(uint32 const diff)
 {
+    static uint32 updateCallCount = 0;
+    ++updateCallCount;
+    if (updateCallCount <= 20 || updateCallCount % 100 == 0) { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] UpdateSessions call #%u diff=%u sessions=%zu queueEmpty=%d this=%p\n", updateCallCount, diff, _sessions.size(), (int)_addSessQueue.empty(), (void*)this); fclose(f); } }
     {
         METRIC_DETAILED_NO_THRESHOLD_TIMER("world_update_time",
             METRIC_TAG("type", "Add sessions"),
@@ -98,8 +102,11 @@ void WorldSessionMgr::UpdateSessions(uint32 const diff)
 
         ///- Add new sessions
         WorldSession* sess = nullptr;
+        bool queueEmpty = _addSessQueue.empty();
+        if (!queueEmpty) { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] UpdateSessions: queue NOT empty! draining this=%p\n", (void*)this); fclose(f); } }
         while (_addSessQueue.next(sess))
         {
+            { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] DEQUEUED session account=%u ptr=%p\n", sess->GetAccountId(), (void*)sess); fclose(f); } }
             AddSession_(sess);
         }
     }
@@ -208,6 +215,7 @@ void WorldSessionMgr::KickAllLess(AccountTypes sec)
 
 void WorldSessionMgr::AddSession(WorldSession* session)
 {
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] AddSession enqueue account=%u this=%p\n", session->GetAccountId(), (void*)this); fclose(f); } }
     _addSessQueue.add(session);
 }
 
@@ -282,11 +290,13 @@ int32 WorldSessionMgr::GetQueuePos(WorldSession* session)
 void WorldSessionMgr::AddSession_(WorldSession* session)
 {
     ASSERT(session);
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] AddSession_ processing account=%u sessions=%zu\n", session->GetAccountId(), _sessions.size()); fclose(f); } }
 
     // kick existing session with same account (if any)
     // if character on old session is being loaded, then return
     if (!KickSession(session->GetAccountId()))
     {
+        { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] AddSession_ KICKED account=%u (old session loading)\n", session->GetAccountId()); fclose(f); } }
         session->KickPlayer("kick existing session with same account");
         delete session; // session not added yet in session list, so not listed in queue
         return;
@@ -335,6 +345,7 @@ void WorldSessionMgr::AddSession_(WorldSession* session)
         return;
     }
 
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[SessionMgr] AddSession_ calling InitializeSession for account=%u\n", session->GetAccountId()); fclose(f); } }
     session->InitializeSession();
 
     UpdateMaxSessionCounters();

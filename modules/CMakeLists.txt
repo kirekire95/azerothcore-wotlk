@@ -354,6 +354,9 @@ foreach(ModuleName ${MODULE_LIST__})
   file(GLOB MODULE_CONFIG_LIST RELATIVE
     ${MODULE_CONFIG_PATH}
     ${MODULE_CONFIG_PATH}/*.conf.dist)
+  # Ignore macOS AppleDouble sidecar files (e.g. ._mod_x.conf.dist)
+  # so they are never compiled into CONFIG_FILE_LIST.
+  list(FILTER MODULE_CONFIG_LIST EXCLUDE REGEX "^\\._")
 
   message(STATUS "  +- ${ModuleName}")
 

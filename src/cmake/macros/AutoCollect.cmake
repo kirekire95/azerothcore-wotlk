@@ -34,6 +34,8 @@ function(CollectSourceFiles current_dir variable)
       ${current_dir}/*.h
       ${current_dir}/*.hh
       ${current_dir}/*.hpp)
+    # Filter out macOS resource fork files (._*) that appear on external drives
+    list(FILTER COLLECTED_SOURCES EXCLUDE REGEX "/\\._[^/]*$")
     list(APPEND ${variable} ${COLLECTED_SOURCES})
 
     file(GLOB SUB_DIRECTORIES ${current_dir}/*)

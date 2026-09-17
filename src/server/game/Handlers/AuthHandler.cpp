@@ -15,12 +15,14 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstdio>
 #include "Opcodes.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
 void WorldSession::SendAuthResponse(uint8 code, bool shortForm, uint32 queuePos)
 {
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Session] SendAuthResponse code=%u shortForm=%d queuePos=%u account=%u\n", code, shortForm, queuePos, GetAccountId()); fclose(f); } }
     WorldPacket packet(SMSG_AUTH_RESPONSE, 1 + 4 + 1 + 4 + 1 + (shortForm ? 0 : (4 + 1)));
     packet << uint8(code);
     packet << uint32(0);                                   // BillingTimeRemaining
@@ -40,6 +42,7 @@ void WorldSession::SendAuthResponse(uint8 code, bool shortForm, uint32 queuePos)
     }
 
     SendPacket(&packet);
+    { FILE* f = fopen("/tmp/ecdbg.log", "a"); if(f) { fprintf(f, "[Session] SendAuthResponse SENT opcode=0x01EE size=%zu account=%u\n", packet.size(), GetAccountId()); fclose(f); } }
 }
 
 void WorldSession::SendClientCacheVersion(uint32 version)
