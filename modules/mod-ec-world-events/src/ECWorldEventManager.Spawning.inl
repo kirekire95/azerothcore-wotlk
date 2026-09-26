@@ -713,10 +713,27 @@ void WorldEventManager::SpawnEventBots(ActiveEvent& event)
 
             PendingBotTeleport pending;
             pending.botGuid = bot->GetGUID();
-            pending.x = def->location.x + offsetX;
-            pending.y = def->location.y + offsetY;
-            pending.z = def->location.z;
-            pending.orientation = def->location.orientation;
+
+            bool isRaidAttacker = def->type == EventType::RAID &&
+                TeamMatchesEventFaction(bot->GetTeamId(), def->attackerFaction);
+            if (isRaidAttacker)
+            {
+                // Rally attackers outside the settlement instead of materializing
+                // in its streets. The initial facing points toward the objective.
+                constexpr float kRaidRallyDistance = 220.0f;
+                float approachAngle = def->location.orientation + static_cast<float>(M_PI);
+                pending.x = def->location.x + std::cos(approachAngle) * kRaidRallyDistance + offsetX;
+                pending.y = def->location.y + std::sin(approachAngle) * kRaidRallyDistance + offsetY;
+                pending.z = def->location.z;
+                pending.orientation = std::atan2(def->location.y - pending.y, def->location.x - pending.x);
+            }
+            else
+            {
+                pending.x = def->location.x + offsetX;
+                pending.y = def->location.y + offsetY;
+                pending.z = def->location.z;
+                pending.orientation = def->location.orientation;
+            }
             pending.mapId = def->location.mapId;
             pending.botName = bot->GetName();
             pending.botLevel = bot->GetLevel();

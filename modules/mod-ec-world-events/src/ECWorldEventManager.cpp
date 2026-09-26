@@ -1234,53 +1234,38 @@ void WorldEventManager::SnapshotRaidTownPopulation(ActiveEvent& event, EventDefi
         return;
     }
 
-    Map* map = sMapMgr->FindBaseNonInstanceMap(settlement->mapId);
-    if (!map)
-        return;
-
     event.townPopulation.clear();
     event.townCasualtiesRecorded.clear();
     event.townCasualties = 0;
     event.casualtyReinforcementStage = 0;
 
-    class SettlementPopulationCollector
+    // Count the persistent spawn population from world DB, not just objects in
+    // loaded grids. Creature GUIDs are stable spawn identities and let death
+    // hooks count each resident once even if its grid unloads later.
+    QueryResult populationResult = WorldDatabase.Query(Acore::StringFormat(
+        "SELECT c.guid, c.id1, ct.faction FROM creature c JOIN creature_template ct ON ct.entry = c.id1 "
+        "WHERE c.map = {} AND POW(c.position_x - {}, 2) + POW(c.position_y - {}, 2) <= POW({}, 2) "
+        "AND c.id1 <> 0",
+        settlement->mapId, settlement->centerX, settlement->centerY, settlement->populationRadius));
+
+    if (populationResult)
     {
-    public:
-        SettlementPopulationCollector(ActiveEvent& targetEvent, SettlementState const& targetSettlement,
-            EventFaction defenderFaction)
-            : _event(targetEvent), _settlement(targetSettlement), _defenderFaction(defenderFaction) { }
-
-        void Visit(std::unordered_map<ObjectGuid, Creature*>& creatures)
+        do
         {
-            for (auto const& [guid, creature] : creatures)
-            {
-                if (!creature || !creature->IsInWorld() || !creature->IsAlive() || creature->IsCritter() ||
-                    creature->IsPet() || creature->IsTotem() || creature->IsTrigger())
-                    continue;
+            Field* fields = populationResult->Fetch();
+            uint32 creatureEntry = fields[1].Get<uint32>();
+            uint32 factionTemplateId = fields[2].Get<uint32>();
+            FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(factionTemplateId);
+            if (!factionTemplate)
+                continue;
 
-                float dx = creature->GetPositionX() - _settlement.centerX;
-                float dy = creature->GetPositionY() - _settlement.centerY;
-                if (dx * dx + dy * dy > _settlement.populationRadius * _settlement.populationRadius)
-                    continue;
-
-                if (GetUnitEventFaction(creature) == _defenderFaction)
-                    _event.townPopulation.insert(guid);
-            }
-        }
-
-        void Visit(std::unordered_map<ObjectGuid, GameObject*>&) { }
-        void Visit(std::unordered_map<ObjectGuid, DynamicObject*>&) { }
-        void Visit(std::unordered_map<ObjectGuid, Corpse*>&) { }
-
-    private:
-        ActiveEvent& _event;
-        SettlementState const& _settlement;
-        EventFaction _defenderFaction;
-    };
-
-    SettlementPopulationCollector collector(event, *settlement, def.defenderFaction);
-    TypeContainerVisitor<SettlementPopulationCollector, MapStoredObjectTypesContainer> visitor(collector);
-    visitor.Visit(map->GetObjectsStore());
+            bool matchesDefender = def.defenderFaction == EventFaction::ALLIANCE
+                ? (factionTemplate->ourMask & FACTION_MASK_ALLIANCE) != 0
+                : (factionTemplate->ourMask & FACTION_MASK_HORDE) != 0;
+            if (matchesDefender)
+                event.townPopulation.insert(ObjectGuid::Create<HighGuid::Unit>(creatureEntry, fields[0].Get<uint32>()));
+        } while (populationResult->NextRow());
+    }
 
     event.townPopulationStart = static_cast<uint32>(event.townPopulation.size());
     EC_LOG_INFO("RAID '%s' snapshot settlement '%s': %u counted town defenders; victory at 80%% casualties",
