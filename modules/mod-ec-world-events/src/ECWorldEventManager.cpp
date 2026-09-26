@@ -1254,7 +1254,6 @@ void WorldEventManager::ProcessRaidTownCasualty(
         return;
 
     ++event.townCasualties;
-    uint32 casualtyPct = event.townCasualties * 100 / event.townPopulationStart;
 
     // Keep counted defenders dead for this assault. Their normal respawn timer
     // is pushed beyond the event; cleanup/recovery can restore normal behavior.
@@ -1262,21 +1261,61 @@ void WorldEventManager::ProcessRaidTownCasualty(
         std::max<int64>(60, std::chrono::duration_cast<std::chrono::seconds>(
             event.endTime - std::chrono::system_clock::now()).count() + 60)));
 
+    EvaluateRaidTownAttrition(event, def);
+}
+
+void WorldEventManager::EvaluateRaidTownAttrition(ActiveEvent& event, EventDefinition const& def)
+{
+    if (def.type != EventType::RAID || event.phase != EventPhase::ACTIVE || event.townPopulationStart == 0)
+        return;
+
+    auto settlementIt = m_settlements.find(event.settlementId);
+    if (settlementIt == m_settlements.end())
+        return;
+
+    SettlementState const& settlement = settlementIt->second;
+    Map* map = sMapMgr->FindBaseNonInstanceMap(settlement.mapId);
+    uint32 dynamicPlayers = 0;
+
+    if (map)
+    {
+        for (auto const& playerRef : map->GetPlayers())
+        {
+            Player* player = playerRef.GetSource();
+            if (!player || !player->IsInWorld() || player->IsDuringRemoveFromWorld() || !player->IsAlive())
+                continue;
+            if (!TeamMatchesEventFaction(player->GetTeamId(), def.defenderFaction))
+                continue;
+
+            float dx = player->GetPositionX() - settlement.centerX;
+            float dy = player->GetPositionY() - settlement.centerY;
+            if (dx * dx + dy * dy <= settlement.populationRadius * settlement.populationRadius)
+                ++dynamicPlayers;
+        }
+    }
+
+    uint32 aliveTownNpcs = event.townPopulationStart - std::min(event.townPopulationStart, event.townCasualties);
+    uint32 currentTotal = event.townPopulationStart + dynamicPlayers;
+    uint32 currentAlive = aliveTownNpcs + dynamicPlayers;
+    uint32 casualtyPct = currentTotal > 0 ? 100 - (currentAlive * 100 / currentTotal) : 0;
+
     uint8 newStage = casualtyPct >= 50 ? 2 : (casualtyPct >= 25 ? 1 : 0);
     if (newStage > event.casualtyReinforcementStage)
     {
         event.casualtyReinforcementStage = newStage;
         uint32 reinforcementCount = newStage == 1 ? 4 : 8;
         SpawnAdditionalBots(event, reinforcementCount, true);
-        EC_LOG_INFO("RAID '%s' reached %u%% town casualties: reinforcement stage %u (%u bots)",
-            def.name.c_str(), casualtyPct, newStage, reinforcementCount);
+        EC_LOG_INFO("RAID '%s' reached %u%% effective attrition with %u live defending players: "
+            "reinforcement stage %u (%u bots)",
+            def.name.c_str(), casualtyPct, dynamicPlayers, newStage, reinforcementCount);
     }
 
     if (casualtyPct >= 80 && event.outcome == EventOutcome::PENDING)
     {
         event.outcome = EventOutcome::ATTACKER_WIN;
-        EC_LOG_INFO("RAID '%s' settlement defeated: %u/%u counted defenders lost (%u%%)",
-            def.name.c_str(), event.townCasualties, event.townPopulationStart, casualtyPct);
+        EC_LOG_INFO("RAID '%s' settlement defeated: NPC casualties=%u/%u, live defending players=%u, "
+            "effective attrition=%u%%",
+            def.name.c_str(), event.townCasualties, event.townPopulationStart, dynamicPlayers, casualtyPct);
         TransitionToPhase(event, EventPhase::ENDING);
     }
 }
@@ -1680,7 +1719,11 @@ void WorldEventManager::UpdateActiveEvents(uint32 diff)
             // Process auto-escalate if enabled (checks defender count in zone)
             const EventDefinition* defForEscalate = GetEventDefinition(event.eventId);
             if (defForEscalate)
-                ProcessAutoEscalate(event, *defForEscalate, pair.first, diff);
+            {
+                EvaluateRaidTownAttrition(event, *defForEscalate);
+                if (event.phase != EventPhase::ENDING)
+                    ProcessAutoEscalate(event, *defForEscalate, pair.first, diff);
+            }
 
             // Update building capture timers (AV-style towers/bunkers)
             UpdateBuildingCaptures(event, diff);

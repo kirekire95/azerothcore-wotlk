@@ -521,6 +521,7 @@ namespace EC
         void ProcessSettlementEconomy(uint32 diff);
         void SnapshotRaidTownPopulation(ActiveEvent& event, EventDefinition const& def);
         void ProcessRaidTownCasualty(ActiveEvent& event, EventDefinition const& def, Creature* creature);
+        void EvaluateRaidTownAttrition(ActiveEvent& event, EventDefinition const& def);
         void LoadEventRewards(uint32 eventId, EventDefinition& def);
         void LoadEventObjects(uint32 eventId, EventDefinition& def);
         void LoadEventCreatures(uint32 eventId, EventDefinition& def);
