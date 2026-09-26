@@ -1782,6 +1782,10 @@ void WorldEventManager::UpdateActiveEvents(uint32 diff)
             // Apply temporary event strategies only after that reset completes.
             ProcessEventBotCombat(event);
 
+            // RAID attackers rally outside the settlement, then advance in
+            // staggered pathfinding waves instead of appearing inside at once.
+            ProcessRaidAttackerAdvance(event, diff);
+
             // Process building guard respawns (barracks-style)
             ProcessBuildingGuardRespawns(event, diff);
         }

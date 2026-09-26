@@ -395,6 +395,8 @@ namespace EC
         // Deferred bot teleports (processed in batches to avoid freezing)
         std::deque<PendingBotTeleport> pendingBotTeleports;
         std::set<ObjectGuid> eventBotStrategiesApplied; // Applied after far-teleport acknowledgement
+        std::set<ObjectGuid> raidAttackersReleased;
+        uint32 raidAdvanceElapsedMs = 0;
 
         // Runtime combat telemetry for spawned event NPCs
         uint32 combatScanElapsedMs = 0;      // Time since last forced aggro scan
@@ -573,6 +575,7 @@ namespace EC
         // Deferred bot teleports (batched to avoid freezing)
         void ProcessPendingBotTeleports(ActiveEvent& event);
         void ProcessEventBotCombat(ActiveEvent& event);
+        void ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 diff);
         void ProcessEventCreatureCombat(ActiveEvent& event, uint32 diff);
 
         // Building capture mechanics (AV-style towers/bunkers)

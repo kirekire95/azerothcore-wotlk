@@ -966,6 +966,62 @@ void WorldEventManager::ProcessEventBotCombat(ActiveEvent& event)
 #endif
 }
 
+void WorldEventManager::ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 diff)
+{
+#ifdef MOD_PLAYERBOTS
+    if (event.phase != EventPhase::ACTIVE)
+        return;
+
+    EventDefinition const* def = GetEventDefinition(event.eventId);
+    if (!def || def->type != EventType::RAID)
+        return;
+
+    event.raidAdvanceElapsedMs += diff;
+    constexpr uint32 kFirstWaveDelayMs = 15000;
+    constexpr uint32 kWaveIntervalMs = 20000;
+    constexpr uint32 kAttackersPerWave = 4;
+
+    if (event.raidAdvanceElapsedMs < kFirstWaveDelayMs)
+        return;
+
+    uint32 allowedWaves = 1 + (event.raidAdvanceElapsedMs - kFirstWaveDelayMs) / kWaveIntervalMs;
+    uint32 allowedAttackers = allowedWaves * kAttackersPerWave;
+    if (event.raidAttackersReleased.size() >= allowedAttackers)
+        return;
+
+    uint32 releasedThisTick = 0;
+    for (ObjectGuid const& guid : event.spawnedBots)
+    {
+        if (event.raidAttackersReleased.size() >= allowedAttackers || releasedThisTick >= kAttackersPerWave)
+            break;
+        if (event.raidAttackersReleased.count(guid) != 0)
+            continue;
+
+        Player* bot = ObjectAccessor::FindPlayer(guid);
+        if (!bot || !bot->IsInWorld() || !bot->IsAlive() ||
+            !TeamMatchesEventFaction(bot->GetTeamId(), def->attackerFaction))
+            continue;
+
+        // MotionMaster uses the server's normal path generator here; this is a
+        // real ground advance from the rally area, not a second teleport.
+        bot->GetMotionMaster()->MovePoint(
+            event.instanceId, def->location.x, def->location.y, def->location.z,
+            FORCED_MOVEMENT_RUN, 0.0f, 0.0f, true, true);
+        event.raidAttackersReleased.insert(guid);
+        ++releasedThisTick;
+    }
+
+    if (releasedThisTick > 0)
+    {
+        EC_LOG_INFO("RAID '%s' released assault wave: %u attacker(s), %zu total advancing",
+            def->name.c_str(), releasedThisTick, event.raidAttackersReleased.size());
+    }
+#else
+    (void)event;
+    (void)diff;
+#endif
+}
+
 void WorldEventManager::SpawnAdditionalBots(ActiveEvent& event, uint32 count, bool defendersOnly)
 {
     const EventDefinition* def = GetEventDefinition(event.eventId);
