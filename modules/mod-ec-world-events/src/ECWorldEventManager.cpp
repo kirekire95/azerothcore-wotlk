@@ -1163,6 +1163,124 @@ void WorldEventManager::ProcessSettlementEconomy(uint32 diff)
     }
 }
 
+void WorldEventManager::SnapshotRaidTownPopulation(ActiveEvent& event, EventDefinition const& def)
+{
+    if (def.type != EventType::RAID)
+        return;
+
+    SettlementState const* settlement = nullptr;
+    for (auto const& [settlementId, candidate] : m_settlements)
+    {
+        if (candidate.mapId != def.location.mapId || candidate.zoneId != def.location.zoneId)
+            continue;
+
+        float dx = candidate.centerX - def.location.x;
+        float dy = candidate.centerY - def.location.y;
+        if (dx * dx + dy * dy <= candidate.populationRadius * candidate.populationRadius)
+        {
+            event.settlementId = settlementId;
+            settlement = &candidate;
+            break;
+        }
+    }
+
+    if (!settlement)
+    {
+        EC_LOG_WARN("RAID '%s' has no settlement definition; 80%% town attrition is unavailable", def.name.c_str());
+        return;
+    }
+
+    Map* map = sMapMgr->FindBaseNonInstanceMap(settlement->mapId);
+    if (!map)
+        return;
+
+    event.townPopulation.clear();
+    event.townCasualtiesRecorded.clear();
+    event.townCasualties = 0;
+    event.casualtyReinforcementStage = 0;
+
+    class SettlementPopulationCollector
+    {
+    public:
+        SettlementPopulationCollector(ActiveEvent& targetEvent, SettlementState const& targetSettlement,
+            EventFaction defenderFaction)
+            : _event(targetEvent), _settlement(targetSettlement), _defenderFaction(defenderFaction) { }
+
+        void Visit(std::unordered_map<ObjectGuid, Creature*>& creatures)
+        {
+            for (auto const& [guid, creature] : creatures)
+            {
+                if (!creature || !creature->IsInWorld() || !creature->IsAlive() || creature->IsCritter() ||
+                    creature->IsPet() || creature->IsTotem() || creature->IsTrigger())
+                    continue;
+
+                float dx = creature->GetPositionX() - _settlement.centerX;
+                float dy = creature->GetPositionY() - _settlement.centerY;
+                if (dx * dx + dy * dy > _settlement.populationRadius * _settlement.populationRadius)
+                    continue;
+
+                if (GetUnitEventFaction(creature) == _defenderFaction)
+                    _event.townPopulation.insert(guid);
+            }
+        }
+
+        void Visit(std::unordered_map<ObjectGuid, GameObject*>&) { }
+        void Visit(std::unordered_map<ObjectGuid, DynamicObject*>&) { }
+        void Visit(std::unordered_map<ObjectGuid, Corpse*>&) { }
+
+    private:
+        ActiveEvent& _event;
+        SettlementState const& _settlement;
+        EventFaction _defenderFaction;
+    };
+
+    SettlementPopulationCollector collector(event, *settlement, def.defenderFaction);
+    TypeContainerVisitor<SettlementPopulationCollector, MapStoredObjectTypesContainer> visitor(collector);
+    visitor.Visit(map->GetObjectsStore());
+
+    event.townPopulationStart = static_cast<uint32>(event.townPopulation.size());
+    EC_LOG_INFO("RAID '%s' snapshot settlement '%s': %u counted town defenders; victory at 80%% casualties",
+        def.name.c_str(), settlement->name.c_str(), event.townPopulationStart);
+}
+
+void WorldEventManager::ProcessRaidTownCasualty(
+    ActiveEvent& event, EventDefinition const& def, Creature* creature)
+{
+    if (def.type != EventType::RAID || event.phase != EventPhase::ACTIVE || event.townPopulationStart == 0)
+        return;
+
+    ObjectGuid guid = creature->GetGUID();
+    if (!event.townPopulation.count(guid) || !event.townCasualtiesRecorded.insert(guid).second)
+        return;
+
+    ++event.townCasualties;
+    uint32 casualtyPct = event.townCasualties * 100 / event.townPopulationStart;
+
+    // Keep counted defenders dead for this assault. Their normal respawn timer
+    // is pushed beyond the event; cleanup/recovery can restore normal behavior.
+    creature->SetRespawnTime(static_cast<uint32>(
+        std::max<int64>(60, std::chrono::duration_cast<std::chrono::seconds>(
+            event.endTime - std::chrono::system_clock::now()).count() + 60)));
+
+    uint8 newStage = casualtyPct >= 50 ? 2 : (casualtyPct >= 25 ? 1 : 0);
+    if (newStage > event.casualtyReinforcementStage)
+    {
+        event.casualtyReinforcementStage = newStage;
+        uint32 reinforcementCount = newStage == 1 ? 4 : 8;
+        SpawnAdditionalBots(event, reinforcementCount, true);
+        EC_LOG_INFO("RAID '%s' reached %u%% town casualties: reinforcement stage %u (%u bots)",
+            def.name.c_str(), casualtyPct, newStage, reinforcementCount);
+    }
+
+    if (casualtyPct >= 80 && event.outcome == EventOutcome::PENDING)
+    {
+        event.outcome = EventOutcome::ATTACKER_WIN;
+        EC_LOG_INFO("RAID '%s' settlement defeated: %u/%u counted defenders lost (%u%%)",
+            def.name.c_str(), event.townCasualties, event.townPopulationStart, casualtyPct);
+        TransitionToPhase(event, EventPhase::ENDING);
+    }
+}
+
 // =============================================================================
 // Update Loop
 // =============================================================================
@@ -2289,6 +2407,9 @@ void WorldEventManager::TransitionToPhase(ActiveEvent& event, EventPhase newPhas
     // Set up reinforcement waves (zeppelin, boat, portal arrivals)
     SetupReinforcementWaves(event, newPhase);
 
+    if (newPhase == EventPhase::ACTIVE)
+        SnapshotRaidTownPopulation(event, *def);
+
     // Spawn bots when entering ACTIVE phase (if not already spawned)
     if (newPhase == EventPhase::ACTIVE && event.spawnedBots.empty())
     {
@@ -2734,6 +2855,10 @@ void WorldEventManager::OnCreatureDeath(Creature* creature, Player* killer)
 
         const EventDefinition* def = GetEventDefinition(event.eventId);
         if (!def)
+            continue;
+
+        ProcessRaidTownCasualty(event, *def, creature);
+        if (event.phase == EventPhase::ENDING)
             continue;
 
         // For WORLD_BOSS events, emit boss killed if creature is a world boss in the event zone

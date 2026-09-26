@@ -403,6 +403,15 @@ namespace EC
         uint32 aliveCombatants = 0;          // Last counted alive military NPCs
         uint32 engagedCombatants = 0;        // Last counted military NPCs currently in combat
         bool aliveWorldEndNotified = false;  // Prevent duplicate leave/memory records
+
+        // RAID settlement attrition. Snapshot once at ACTIVE start so the
+        // victory denominator cannot move as grids unload or players arrive.
+        uint32 settlementId = 0;
+        uint32 townPopulationStart = 0;
+        uint32 townCasualties = 0;
+        std::set<ObjectGuid> townPopulation;
+        std::set<ObjectGuid> townCasualtiesRecorded;
+        uint8 casualtyReinforcementStage = 0;
     };
 
     struct SettlementState
@@ -510,6 +519,8 @@ namespace EC
         void LoadEventDefinitions();
         void LoadSettlements();
         void ProcessSettlementEconomy(uint32 diff);
+        void SnapshotRaidTownPopulation(ActiveEvent& event, EventDefinition const& def);
+        void ProcessRaidTownCasualty(ActiveEvent& event, EventDefinition const& def, Creature* creature);
         void LoadEventRewards(uint32 eventId, EventDefinition& def);
         void LoadEventObjects(uint32 eventId, EventDefinition& def);
         void LoadEventCreatures(uint32 eventId, EventDefinition& def);
@@ -525,7 +536,7 @@ namespace EC
 
         // Bot spawning
         void SpawnEventBots(ActiveEvent& event);
-        void SpawnAdditionalBots(ActiveEvent& event, uint32 count);
+        void SpawnAdditionalBots(ActiveEvent& event, uint32 count, bool defendersOnly = false);
         void DespawnEventBots(ActiveEvent& event);
         bool CanRecruitEventBot(Player* bot) const;
         bool CaptureBotReturnContext(Player* bot, const ActiveEvent& event);
