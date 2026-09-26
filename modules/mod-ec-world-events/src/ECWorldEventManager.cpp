@@ -1304,6 +1304,8 @@ void WorldEventManager::EvaluateRaidTownAttrition(ActiveEvent& event, EventDefin
     {
         event.casualtyReinforcementStage = newStage;
         uint32 reinforcementCount = newStage == 1 ? 4 : 8;
+        if (settlement.damagePct == 0)
+            reinforcementCount += settlement.developmentLevel * (newStage == 1 ? 1 : 2);
         SpawnAdditionalBots(event, reinforcementCount, true);
         EC_LOG_INFO("RAID '%s' reached %u%% effective attrition with %u live defending players: "
             "reinforcement stage %u (%u bots)",
@@ -1313,9 +1315,19 @@ void WorldEventManager::EvaluateRaidTownAttrition(ActiveEvent& event, EventDefin
     if (casualtyPct >= 80 && event.outcome == EventOutcome::PENDING)
     {
         event.outcome = EventOutcome::ATTACKER_WIN;
+
+        // Defeat persists beyond the event. Damage immediately suppresses
+        // development bonuses and future income is consumed by repairs first.
+        SettlementState& damagedSettlement = m_settlements[event.settlementId];
+        damagedSettlement.damagePct = std::max<uint8>(damagedSettlement.damagePct, 80);
+        WorldDatabase.Execute(
+            "UPDATE ec_world_settlements SET damage_pct = {}, last_economy_update = CURRENT_TIMESTAMP WHERE id = {}",
+            damagedSettlement.damagePct, damagedSettlement.id);
+
         EC_LOG_INFO("RAID '%s' settlement defeated: NPC casualties=%u/%u, live defending players=%u, "
-            "effective attrition=%u%%",
-            def.name.c_str(), event.townCasualties, event.townPopulationStart, dynamicPlayers, casualtyPct);
+            "effective attrition=%u%%; settlement damage=%u%%",
+            def.name.c_str(), event.townCasualties, event.townPopulationStart, dynamicPlayers, casualtyPct,
+            damagedSettlement.damagePct);
         TransitionToPhase(event, EventPhase::ENDING);
     }
 }

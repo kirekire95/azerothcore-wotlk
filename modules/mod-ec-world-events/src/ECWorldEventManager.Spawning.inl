@@ -1664,11 +1664,25 @@ void WorldEventManager::SpawnEventGameObjects(ActiveEvent& event, EventPhase for
             building.buildingName = obj.name;
             building.pointsValue = obj.pointsOnCapture;
 
-            // Barracks-style guard production
+            // Barracks-style guard production. Persistent settlement
+            // development increases capacity and response speed, while damage
+            // removes those bonuses. Base object values remain authoritative.
             building.lastGuardRespawnMs = 0;
             building.guardsProduced = 0;
             building.maxGuards = obj.maxGuards;
             building.guardRespawnMs = obj.guardRespawnSeconds * 1000;
+
+            auto settlementIt = m_settlements.find(event.settlementId);
+            if (settlementIt != m_settlements.end() && settlementIt->second.damagePct == 0)
+            {
+                uint16 development = settlementIt->second.developmentLevel;
+                building.maxGuards += development;
+                if (building.guardRespawnMs > 0 && development > 0)
+                {
+                    uint32 speedPct = std::min<uint32>(50, development * 10);
+                    building.guardRespawnMs = building.guardRespawnMs * (100 - speedPct) / 100;
+                }
+            }
 
             event.buildings[obj.objectId] = building;
 
