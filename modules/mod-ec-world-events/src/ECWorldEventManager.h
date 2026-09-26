@@ -449,8 +449,17 @@ namespace EC
         // persisted in the characters database for restart recovery.
         std::map<ObjectGuid, BotReturnContext> m_botReturnContexts;
 
+        struct SettlementLink
+        {
+            uint32 sourceSettlementId = 0;
+            uint32 targetSettlementId = 0;
+            uint8 transferPct = 0;
+            std::string linkType;
+        };
+
         // Persistent settlement economy/progression loaded from world DB.
         std::map<uint32, SettlementState> m_settlements;
+        std::vector<SettlementLink> m_settlementLinks;
         uint32 m_settlementEconomyElapsedMs = 0;
         uint32 m_settlementEconomyIntervalMs = 60000;
 

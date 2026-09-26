@@ -1123,7 +1123,26 @@ void WorldEventManager::LoadSettlements()
         m_settlements[settlement.id] = settlement;
     } while (result->NextRow());
 
-    EC_LOG_INFO("Loaded %zu persistent settlement economies", m_settlements.size());
+    m_settlementLinks.clear();
+    QueryResult linkResult = WorldDatabase.Query(
+        "SELECT source_settlement_id, target_settlement_id, link_type, transfer_pct "
+        "FROM ec_world_settlement_links WHERE enabled = 1");
+    if (linkResult)
+    {
+        do
+        {
+            Field* fields = linkResult->Fetch();
+            SettlementLink link;
+            link.sourceSettlementId = fields[0].Get<uint32>();
+            link.targetSettlementId = fields[1].Get<uint32>();
+            link.linkType = fields[2].Get<std::string>();
+            link.transferPct = std::min<uint8>(100, fields[3].Get<uint8>());
+            m_settlementLinks.push_back(std::move(link));
+        } while (linkResult->NextRow());
+    }
+
+    EC_LOG_INFO("Loaded %zu persistent settlement economies and %zu regional links",
+        m_settlements.size(), m_settlementLinks.size());
 }
 
 void WorldEventManager::ProcessSettlementEconomy(uint32 diff)
@@ -1135,9 +1154,34 @@ void WorldEventManager::ProcessSettlementEconomy(uint32 diff)
     uint32 elapsedMs = m_settlementEconomyElapsedMs;
     m_settlementEconomyElapsedMs = 0;
 
+    std::map<uint32, uint64> localProduction;
+    std::map<uint32, uint64> regionalSupport;
+
+    for (auto const& [settlementId, settlement] : m_settlements)
+    {
+        uint32 healthPct = 100 - std::min<uint32>(100, settlement.damagePct);
+        uint64 generated = static_cast<uint64>(settlement.incomePerHour) * healthPct * elapsedMs / 100 / 3600000;
+        localProduction[settlementId] = generated;
+    }
+
+    for (SettlementLink const& link : m_settlementLinks)
+    {
+        auto sourceIt = m_settlements.find(link.sourceSettlementId);
+        auto targetIt = m_settlements.find(link.targetSettlementId);
+        if (sourceIt == m_settlements.end() || targetIt == m_settlements.end())
+            continue;
+
+        uint64 sourceProduction = localProduction[link.sourceSettlementId];
+        uint64 transfer = sourceProduction * link.transferPct / 100;
+        regionalSupport[link.targetSettlementId] += transfer;
+
+        EC_LOG_TRACE("Regional link %s: '%s' -> '%s' contributes %llu this tick",
+            link.linkType.c_str(), sourceIt->second.name.c_str(), targetIt->second.name.c_str(), transfer);
+    }
+
     for (auto& [settlementId, settlement] : m_settlements)
     {
-        uint64 generated = static_cast<uint64>(settlement.incomePerHour) * elapsedMs / 3600000;
+        uint64 generated = localProduction[settlementId] + regionalSupport[settlementId];
         settlement.treasury += generated;
 
         if (settlement.damagePct > 0 && settlement.treasury >= 10)
