@@ -1,0 +1,36 @@
+{
+  "originalMsiHead": "8d8c63926b24b3d1d8fc01fc500262a9de53a4e2",
+  "commonAncestor": "c0e6272af9a1a95aa0859a0cd95f7b70b273c9f4",
+  "currentUpstreamBase": "7f12e89ee5f467a50e62eba1d525eac7dc953d03",
+  "msiOnlyCommitCount": 18,
+  "upstreamOnlyCommitCount": 1982,
+  "bundleSha256": "273d000e78c7c532f120b3b4c6b56bbac29c3b4e9ec84a087890e6958e8041d4",
+  "historyImported": true,
+  "automaticMergePerformed": false,
+  "remainingReview": "Original MSI build/merge repairs are not blindly applied over the current module-owned database and newer core APIs.",
+  "mechanismReview": [
+    {
+      "mechanism": "AppleDouble source and configuration filtering",
+      "disposition": "Restored on release branch and fixture-tested",
+      "sourceCommit": "4a92564a35",
+      "portCommit": "6362cb31f322d87100cf45f8d23ce43fc2c145fe"
+    },
+    {
+      "mechanism": "Durable bot strategy save before clearing event return checkpoint",
+      "disposition": "Present in current module-owned synchronous DB pool and SaveSync transaction/read verification; old core-owned CONNECTION_BOTH patch is not applicable"
+    },
+    {
+      "mechanism": "Playerbot OnPacketReceived server hook",
+      "disposition": "Present in current ServerScript.h and dispatched by WorldSession.cpp"
+    },
+    {
+      "mechanism": "Temporary /tmp/ecdbg.log tracing",
+      "disposition": "Intentionally not restored as production behavior"
+    },
+    {
+      "mechanism": "Post-merge brace, declaration and old-signature repair commits",
+      "disposition": "Preserved in MSI history; not blindly replayed over the newer core that successfully builds all modules"
+    }
+  ],
+  "fullBehaviorParityProven": false
+}

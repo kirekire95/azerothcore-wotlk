@@ -44,7 +44,9 @@ safety gate before execution. The backend still reports RA unauthenticated, so n
 new claim of gameplay or progression persistence is made here. The bridge's
 existing protocol/threading implementation has not been comprehensively redesigned.
 
-The original MSI core history is being preserved separately. Do not merge old
+The complete MSI core history has been transferred, SHA-256 verified, and imported as
+`refs/remotes/msi/Playerbot` at `8d8c63926b24b3d1d8fc01fc500262a9de53a4e2`.
+See `z790-msi-core-review-20260927.json` for the mechanism review. Do not merge old
 core/schema compatibility patches indiscriminately into this newer core. Active
 World Events development continues in the original worktree and was not reset.
 
@@ -58,3 +60,18 @@ The Docker image label `org.opencontainers.image.revision` records the source ha
 
 The SQL replay helper refuses any target container name that does not begin with
 `z790-reconcile-db-`; it is not a live migration installer.
+
+## Build-time portability follow-up
+
+The MSI AppleDouble source/config filtering fix was restored with its original
+author attribution and passed CMake fixtures. This changes clean-build input
+filtering, not runtime behavior; the already deployed bridge image remains pinned
+to `2c1e75ec58d4`. The active development branch also received the bridge source
+repair in commit `7991afe3fbd5f4113204db98c63efed301998588`.
+
+## Check limitations
+
+The repository-wide C++ style checker reports pre-existing west-const usage in
+the bridge. The SQL style checker flags stored-procedure syntax and the deliberate
+append-only audit insertion; MySQL execution, idempotence, and drift-refusal tests
+passed. Neither style checker is claimed green.
