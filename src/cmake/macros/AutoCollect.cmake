@@ -34,6 +34,8 @@ function(CollectSourceFiles current_dir variable)
       ${current_dir}/*.h
       ${current_dir}/*.hh
       ${current_dir}/*.hpp)
+    # Preserve MSI 4a92564a35: external-drive metadata is not C++ source.
+    list(FILTER COLLECTED_SOURCES EXCLUDE REGEX "/\\._[^/]*$")
     list(APPEND ${variable} ${COLLECTED_SOURCES})
 
     file(GLOB SUB_DIRECTORIES ${current_dir}/*)

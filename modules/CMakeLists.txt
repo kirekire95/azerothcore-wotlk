@@ -355,6 +355,9 @@ foreach(ModuleName ${MODULE_LIST__})
     ${MODULE_CONFIG_PATH}
     ${MODULE_CONFIG_PATH}/*.conf.dist)
 
+  # Preserve MSI 4a92564a35: AppleDouble sidecars are not configuration files.
+  list(FILTER MODULE_CONFIG_LIST EXCLUDE REGEX "^\\._")
+
   message(STATUS "  +- ${ModuleName}")
 
   foreach(configFileName ${MODULE_CONFIG_LIST})
