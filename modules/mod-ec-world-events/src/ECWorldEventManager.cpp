@@ -1091,7 +1091,9 @@ void WorldEventManager::LoadSettlements()
     QueryResult result = WorldDatabase.Query(
         "SELECT s.id, s.name, s.map_id, s.zone_id, s.area_id, s.center_x, s.center_y, s.center_z, "
         "s.population_radius, s.faction, s.treasury, s.development_level, s.damage_pct, "
-        "IFNULL(SUM(CASE WHEN r.enabled = 1 THEN r.income_per_hour * r.health_pct / 100 ELSE 0 END), 0) "
+        "IFNULL(SUM(CASE WHEN r.enabled = 1 THEN r.income_per_hour * "
+        "LEAST(r.health_pct, IFNULL((SELECT CASE WHEN n.state = 2 THEN 0 ELSE n.health_pct END "
+        "FROM ec_world_settlement_nodes n WHERE n.resource_id = r.id LIMIT 1), 100)) / 100 ELSE 0 END), 0) "
         "FROM ec_world_settlements s LEFT JOIN ec_world_settlement_resources r ON r.settlement_id = s.id "
         "GROUP BY s.id, s.name, s.map_id, s.zone_id, s.area_id, s.center_x, s.center_y, s.center_z, "
         "s.population_radius, s.faction, s.treasury, s.development_level, s.damage_pct");
@@ -1122,6 +1124,26 @@ void WorldEventManager::LoadSettlements()
         settlement.incomePerHour = fields[13].Get<uint32>();
         m_settlements[settlement.id] = settlement;
     } while (result->NextRow());
+
+    QueryResult tierResult = WorldDatabase.Query(
+        "SELECT settlement_id, development_level, creature_entry "
+        "FROM ec_world_settlement_guard_tiers ORDER BY settlement_id, development_level");
+    if (tierResult)
+    {
+        do
+        {
+            Field* fields = tierResult->Fetch();
+            auto settlement = m_settlements.find(fields[0].Get<uint32>());
+            uint32 creatureEntry = fields[2].Get<uint32>();
+            if (settlement == m_settlements.end() || !sObjectMgr->GetCreatureTemplate(creatureEntry))
+            {
+                EC_LOG_ERROR("Invalid settlement guard tier: settlement=%u creature=%u",
+                    fields[0].Get<uint32>(), creatureEntry);
+                continue;
+            }
+            settlement->second.guardTiers[fields[1].Get<uint16>()] = creatureEntry;
+        } while (tierResult->NextRow());
+    }
 
     m_settlementLinks.clear();
     QueryResult linkResult = WorldDatabase.Query(

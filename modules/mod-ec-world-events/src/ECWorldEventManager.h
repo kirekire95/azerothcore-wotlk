@@ -443,6 +443,7 @@ namespace EC
         uint16 developmentLevel = 0;
         uint8 damagePct = 0;
         uint32 incomePerHour = 0;
+        std::map<uint16, uint32> guardTiers;
     };
 
     // Main event manager class (singleton)

@@ -547,8 +547,21 @@ void WorldEventManager::ProcessBuildingGuardRespawns(ActiveEvent& event, uint32 
         float worldY = def->location.y + objDef->offsetY + sinf(randomAngle) * randomDist;
         float worldZ = def->location.z + objDef->offsetZ;
 
+        uint32 guardEntry = guardTemplate->creatureEntry;
+        auto settlement = m_settlements.find(event.settlementId);
+        if (settlement != m_settlements.end() && settlement->second.damagePct == 0 &&
+            !settlement->second.guardTiers.empty())
+        {
+            auto tier = settlement->second.guardTiers.upper_bound(settlement->second.developmentLevel);
+            if (tier != settlement->second.guardTiers.begin())
+            {
+                --tier;
+                guardEntry = tier->second;
+            }
+        }
+
         TempSummon* summon = map->SummonCreature(
-            guardTemplate->creatureEntry,
+            guardEntry,
             {worldX, worldY, worldZ, guardTemplate->orientation},
             nullptr, 0, nullptr, 0
         );
