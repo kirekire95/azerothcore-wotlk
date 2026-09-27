@@ -1,0 +1,8 @@
+-- Intentionally empty.
+--
+-- ec_bot_goals belongs to acore_characters because GoalRepository uses
+-- CharacterDatabase. The active schema is maintained at:
+--   ../../characters/base/ec_bot_goals.sql
+--
+-- Keep this compatibility marker in the old playerbots base path so clean
+-- imports cannot recreate the table in acore_playerbots.

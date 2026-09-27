@@ -1,0 +1,125 @@
+#
+# mod-ec-realtime-bridge Configuration
+#
+# Shared Realtime Communication Bridge for EC Modules
+#
+# This module provides a unified TCP socket for all EC modules to
+# communicate with the Node.js backend. Instead of each module having
+# its own socket, they all share this single connection.
+#
+# Modules using this bridge:
+#   - mod-alive-world (AI bots)
+#   - mod-ec-guard-system (wanted levels)
+#   - mod-ec-world-events (raids, world bosses)
+#   - mod-ollama-chat (NPC chat)
+#
+
+###############################################################################
+# CONNECTION SETTINGS
+###############################################################################
+
+#
+# ECRealtimeBridge.Enable
+#     Enable/disable the realtime bridge
+#     Default: 1 (enabled)
+#
+ECRealtimeBridge.Enable = 1
+
+#
+# ECRealtimeBridge.Host
+#     Hostname or IP address of the Node.js backend
+#     Default: "127.0.0.1"
+#
+ECRealtimeBridge.Host = "127.0.0.1"
+
+#
+# ECRealtimeBridge.Port
+#     TCP port for the Node.js backend
+#     Default: 8092
+#
+ECRealtimeBridge.Port = 8652
+
+#
+# ECRealtimeBridge.SharedSecret
+#     Authentication secret shared with the Node.js backend
+#     If empty, no authentication is performed
+#     Default: "" (empty, no auth)
+#
+#     IMPORTANT: Set this to a secure value in production!
+#
+ECRealtimeBridge.SharedSecret = ""
+
+###############################################################################
+# TIMING SETTINGS
+###############################################################################
+
+#
+# ECRealtimeBridge.ReconnectIntervalMs
+#     Time to wait between reconnection attempts (milliseconds)
+#     Default: 5000 (5 seconds)
+#
+ECRealtimeBridge.ReconnectIntervalMs = 5000
+
+#
+# ECRealtimeBridge.HeartbeatIntervalMs
+#     Time between heartbeat messages (milliseconds)
+#     Heartbeats are used to detect connection failures
+#     Default: 10000 (10 seconds)
+#
+ECRealtimeBridge.HeartbeatIntervalMs = 10000
+
+#
+# ECRealtimeBridge.ConnectionTimeoutMs
+#     Maximum time to wait for connection establishment (milliseconds)
+#     Default: 5000 (5 seconds)
+#
+ECRealtimeBridge.ConnectionTimeoutMs = 5000
+
+###############################################################################
+# QUEUE SETTINGS
+###############################################################################
+
+#
+# ECRealtimeBridge.MaxQueueSize
+#     Maximum number of events to queue before dropping
+#     When the queue is full, new events are dropped with a warning
+#     Default: 10000
+#
+ECRealtimeBridge.MaxQueueSize = 10000
+
+#
+# ECRealtimeBridge.MaxMessageSize
+#     Maximum size of a single message in bytes
+#     Messages larger than this are rejected
+#     Default: 1048576 (1MB)
+#
+ECRealtimeBridge.MaxMessageSize = 1048576
+
+###############################################################################
+# DEBUG SETTINGS
+###############################################################################
+
+#
+# ECRealtimeBridge.Debug
+#     Enable debug logging for the bridge
+#     Shows all sent/received messages in the server log
+#     Default: 0 (disabled)
+#
+ECRealtimeBridge.Debug = 0
+
+###############################################################################
+# COMMANDS
+###############################################################################
+#
+# Available GM Commands:
+#
+#   .bridge status    - Show connection status and statistics
+#   .bridge dump      - Dump detailed state to server log
+#   .bridge debug on  - Enable debug mode
+#   .bridge debug off - Disable debug mode
+#   .bridge reload    - Reload configuration
+#   .bridge reset     - Reset statistics
+#   .bridge test [ns] - Send a test event to namespace (default: system)
+#
+# Aliases: .ecbridge (same commands)
+#

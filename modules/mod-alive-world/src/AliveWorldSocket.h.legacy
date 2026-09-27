@@ -1,0 +1,277 @@
+/*
+ * mod-alive-world - TCP Socket Communication
+ * Copyright (C) 2025 EC
+ *
+ * Bidirectional TCP socket for communication with the Node.js AI daemon.
+ * Emits game events as JSON, receives AI decisions as commands.
+ *
+ * Protocol:
+ *   - Messages are newline-delimited JSON
+ *   - Each message is a complete JSON object followed by \n
+ *   - Connection is persistent, reconnects automatically
+ */
+
+#ifndef ALIVE_WORLD_SOCKET_H
+#define ALIVE_WORLD_SOCKET_H
+
+#include "AliveWorldTypes.h"
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <string>
+#include <thread>
+
+// Forward declarations for AzerothCore classes (MUST be outside the namespace!)
+// These are global classes, not AliveWorld::Player or AliveWorld::Creature
+class Player;
+class Creature;
+class Unit;
+
+namespace AliveWorld
+{
+
+// ============================================================================
+// SOCKET MESSAGE TYPES
+// ============================================================================
+
+// Outgoing event types (C++ → Node.js)
+enum class SocketEventType : uint8_t
+{
+    // System events
+    SYSTEM_STARTUP = 0,
+    SYSTEM_SHUTDOWN = 1,
+    SYSTEM_HEARTBEAT = 2,
+
+    // Player events
+    PLAYER_LOGIN = 10,
+    PLAYER_LOGOUT = 11,
+    PLAYER_CHAT = 12,
+    PLAYER_EMOTE = 13,
+    PLAYER_ZONE_CHANGE = 14,
+
+    // Combat events
+    COMBAT_START = 20,
+    COMBAT_END = 21,
+    CREATURE_KILLED = 22,
+    PLAYER_KILLED = 23,
+    PLAYER_DIED = 24,
+    BOT_LOW_HEALTH = 25,
+    BOT_LOW_MANA = 26,
+
+    // Social events
+    GROUP_FORMED = 30,
+    GROUP_DISBANDED = 31,
+    DUEL_START = 32,
+    DUEL_END = 33,
+    TRADE_STARTED = 34,
+
+    // World events
+    RARE_SPAWN = 40,
+    BOSS_ENGAGED = 41,
+    BOSS_KILLED = 42,
+    WORLD_EVENT_START = 43,
+    WORLD_EVENT_END = 44,
+
+    // Bot state updates
+    BOT_TIER_CHANGED = 50,
+    BOT_ZONE_ENTERED = 51,
+    BOT_NEAR_PLAYER = 52,
+
+    // Gossip
+    GOSSIP_SPREAD = 60,
+};
+
+// Incoming command types (Node.js → C++)
+enum class SocketCommandType : uint8_t
+{
+    // Bot actions
+    BOT_SAY = 0,
+    BOT_YELL = 1,
+    BOT_WHISPER = 2,
+    BOT_EMOTE = 3,
+
+    // Bot commands
+    BOT_DRINK = 10,
+    BOT_EAT = 11,
+    BOT_FOLLOW = 12,
+    BOT_STAY = 13,
+    BOT_ATTACK = 14,
+    BOT_FLEE = 15,
+    BOT_ASSIST = 16,
+
+    // Bot state
+    BOT_SET_ROLE = 20,
+    BOT_SET_STRATEGY = 21,
+
+    // System
+    REQUEST_STATE = 90,
+    SET_DEBUG = 91,
+    AUTH = 92,
+};
+
+// ============================================================================
+// SOCKET EVENT (Outgoing)
+// ============================================================================
+
+struct SocketEvent
+{
+    SocketEventType type;
+    uint64_t timestamp;     // Unix timestamp ms
+    std::string jsonData;   // Full JSON payload
+
+    SocketEvent() : type(SocketEventType::SYSTEM_HEARTBEAT), timestamp(0) {}
+    SocketEvent(SocketEventType t, const std::string& json)
+        : type(t), jsonData(json)
+    {
+        timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count();
+    }
+};
+
+// ============================================================================
+// SOCKET COMMAND (Incoming)
+// ============================================================================
+
+struct SocketCommand
+{
+    SocketCommandType type;
+    uint32_t botGuid;
+    std::string param1;     // e.g., message text, target name
+    std::string param2;     // e.g., emote ID, strategy name
+    int32_t numParam;       // e.g., target GUID, numeric value
+
+    SocketCommand()
+        : type(SocketCommandType::BOT_SAY), botGuid(0), numParam(0) {}
+};
+
+// ============================================================================
+// ALIVE WORLD SOCKET
+// ============================================================================
+
+class AliveWorldSocket
+{
+public:
+    using CommandCallback = std::function<void(const SocketCommand&)>;
+
+    static AliveWorldSocket* Instance();
+
+    // Lifecycle
+    void Initialize();
+    void Shutdown();
+    bool IsConnected() const { return _connected.load(); }
+    bool IsDaemonAvailable() const { return _daemonAvailable.load(); }
+
+    // Configuration
+    void SetHost(const std::string& host) { _host = host; }
+    void SetPort(uint16_t port) { _port = port; }
+    void SetReconnectInterval(uint32_t ms) { _reconnectIntervalMs = ms; }
+
+    // Get configuration
+    const std::string& GetHost() const { return _host; }
+    uint16_t GetPort() const { return _port; }
+    uint32_t GetReconnectInterval() const { return _reconnectIntervalMs; }
+
+    // Event emission (C++ → Node.js)
+    void EmitEvent(const SocketEvent& event);
+    void EmitEvent(SocketEventType type, const std::string& json);
+
+    // Convenience emitters
+    void EmitPlayerEvent(SocketEventType type, Player* player, const std::string& extraJson = "");
+    void EmitBotEvent(SocketEventType type, uint32_t botGuid, const std::string& json);
+    void EmitCombatEvent(SocketEventType type, uint32_t botGuid, Unit* target, const std::string& extraJson = "");
+    void EmitSystemEvent(SocketEventType type, const std::string& json = "{}");
+
+    // Command handling (Node.js → C++)
+    void SetCommandCallback(CommandCallback callback) { _commandCallback = callback; }
+    void ProcessPendingCommands();
+
+    // Stats
+    uint64_t GetEventsSent() const { return _eventsSent.load(); }
+    uint64_t GetCommandsReceived() const { return _commandsReceived.load(); }
+    uint64_t GetReconnectCount() const { return _reconnectCount.load(); }
+    uint32_t GetQueueSize() const;
+
+private:
+    AliveWorldSocket();
+    ~AliveWorldSocket();
+
+    // Disable copy
+    AliveWorldSocket(const AliveWorldSocket&) = delete;
+    AliveWorldSocket& operator=(const AliveWorldSocket&) = delete;
+
+    // Network threads
+    void ConnectionThread();
+    void SendThread();
+    void ReceiveThread();
+
+    // Connection management
+    bool Connect();
+    void Disconnect();
+    void ScheduleReconnect();
+
+    // Message handling
+    bool SendMessage(const std::string& json);
+    void HandleIncomingMessage(const std::string& json);
+    SocketCommand ParseCommand(const std::string& json);
+
+    // JSON helpers
+    std::string BuildPlayerJson(Player* player);
+    std::string BuildBotStateJson(uint32_t botGuid);
+    std::string BuildCombatJson(uint32_t botGuid, Unit* target);
+
+private:
+    // Configuration
+    std::string _host;
+    uint16_t _port;
+    uint32_t _reconnectIntervalMs;
+    uint32_t _heartbeatIntervalMs;
+
+    // Socket
+    int _socketFd;
+    std::atomic<bool> _connected;
+    std::atomic<bool> _daemonAvailable;
+    std::atomic<bool> _authenticated;
+    std::atomic<bool> _shouldRun;
+
+    // Threads
+    std::unique_ptr<std::thread> _connectionThread;
+    std::unique_ptr<std::thread> _sendThread;
+    std::unique_ptr<std::thread> _receiveThread;
+
+    // Outgoing event queue
+    std::queue<SocketEvent> _eventQueue;
+    mutable std::mutex _eventQueueMutex;
+    std::condition_variable _eventQueueCV;
+    static constexpr size_t MAX_QUEUE_MEMORY = 100 * 1024 * 1024;  // 100MB
+    std::atomic<size_t> _queueMemoryUsage{0};
+
+    // Incoming command queue
+    std::queue<SocketCommand> _commandQueue;
+    std::mutex _commandQueueMutex;
+
+    // Callback for commands
+    CommandCallback _commandCallback;
+
+    // Stats
+    std::atomic<uint64_t> _eventsSent;
+    std::atomic<uint64_t> _commandsReceived;
+    std::atomic<uint64_t> _reconnectCount;
+    std::atomic<uint32_t> _connectFailureCount{0};
+
+    // Heartbeat
+    std::chrono::steady_clock::time_point _lastHeartbeat;
+    mutable std::mutex _timeMutex;
+    std::chrono::steady_clock::time_point _lastDaemonResponse;
+};
+
+#define sAliveWorldSocket AliveWorldSocket::Instance()
+
+} // namespace AliveWorld
+
+#endif // ALIVE_WORLD_SOCKET_H

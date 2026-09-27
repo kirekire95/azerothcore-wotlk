@@ -1,0 +1,197 @@
+#
+# EC World Events Configuration
+# Copyright (C) 2026 EC
+#
+
+###############################################################################
+# EC WORLD EVENTS MODULE CONFIGURATION
+###############################################################################
+
+#
+#    ECWorldEvents.Enable
+#        Description: Enable or disable the EC World Events module
+#        Default:     1 (Enabled)
+#
+
+ECWorldEvents.Enable = 1
+
+#
+#    ECWorldEvents.Debug
+#        Description: Enable debug mode - verbose logging and in-game debug messages
+#                     When enabled, debug info is shown to GMs in-game
+#        Default:     0 (Disabled)
+#
+
+ECWorldEvents.Debug = 0
+
+#
+#    ECWorldEvents.DebugLogLevel
+#        Description: How verbose the debug logging should be
+#                     0 = Errors only
+#                     1 = Errors + Warnings
+#                     2 = Errors + Warnings + Info
+#                     3 = All (includes trace-level debug)
+#        Default:     2
+#
+
+ECWorldEvents.DebugLogLevel = 2
+
+#
+#    ECWorldEvents.UpdateIntervalMs
+#        Description: How often the event manager updates (in milliseconds)
+#        Default:     1000 (1 second)
+#
+
+ECWorldEvents.UpdateIntervalMs = 1000
+
+#
+#    ECWorldEvents.MaxActiveEvents
+#        Description: Maximum number of concurrent active events
+#        Default:     10
+#
+
+ECWorldEvents.MaxActiveEvents = 10
+
+#
+#    ECWorldEvents.AnnounceToWorld
+#        Description: Announce event start/end to all players
+#        Default:     1 (Enabled)
+#        NOTE: Not yet implemented - planned for future release
+#
+
+ECWorldEvents.AnnounceToWorld = 1
+
+#
+#    ECWorldEvents.MinParticipationForReward
+#        Description: Minimum participation percentage to receive any reward (0-100)
+#        Default:     10
+#        NOTE: Not yet implemented - planned for future release
+#
+
+ECWorldEvents.MinParticipationForReward = 10
+
+#
+#    ECWorldEvents.AutoEscalateEnabled
+#        Description: Automatically escalate events if not enough defenders
+#        Default:     1 (Enabled)
+#        NOTE: Not yet implemented - planned for future release
+#
+
+ECWorldEvents.AutoEscalateEnabled = 1
+
+#
+#    ECWorldEvents.AutoEscalateMinutes
+#        Description: Minutes without defenders before auto-escalation
+#        Default:     5
+#        NOTE: Not yet implemented - planned for future release
+#
+
+ECWorldEvents.AutoEscalateMinutes = 5
+
+#
+#    ECWorldEvents.LogToDatabase
+#        Description: Log all events to the database for history
+#        Default:     1 (Enabled)
+#        NOTE: Not yet implemented - planned for future release
+#
+
+ECWorldEvents.LogToDatabase = 1
+
+#
+#    ECWorldEvents.EventCooldownMinutes
+#        Description: Minutes after event completes before it can run again.
+#                     Individual events can override via cooldown_minutes column.
+#                     Cancelled events get half the cooldown.
+#        Default:     30
+#
+
+ECWorldEvents.EventCooldownMinutes = 30
+
+###############################################################################
+# EVENT START STAGGERING
+# When multiple scheduled events are due at the same time, only one starts
+# immediately. The rest are deferred by a random delay within this range
+# so announcements don't all fire simultaneously.
+###############################################################################
+
+#
+#    ECWorldEvents.EventStaggerMinutesMin
+#        Description: Minimum random delay (in minutes) before a deferred event starts
+#        Default:     2
+#
+
+ECWorldEvents.EventStaggerMinutesMin = 2
+
+#
+#    ECWorldEvents.EventStaggerMinutesMax
+#        Description: Maximum random delay (in minutes) before a deferred event starts
+#        Default:     8
+#
+
+ECWorldEvents.EventStaggerMinutesMax = 8
+
+###############################################################################
+# SPAWNING PERFORMANCE
+# Controls how creatures and bots are spawned during phase transitions.
+# Phase transitions spawn many entities at once which can freeze the server
+# if not batched. These settings control the batching behavior.
+###############################################################################
+
+#
+#    ECWorldEvents.BotHardCap
+#        Description: Maximum number of bots a single event can recruit.
+#                     Higher values are safe thanks to batched teleporting.
+#        Default:     80
+#
+
+ECWorldEvents.BotHardCap = 80
+
+#
+#    ECWorldEvents.RaidDefenderBotsEnabled
+#        Description: Allow RAID events to recruit defender-faction bots in
+#                     addition to attacker-faction bots.
+#                     0 = attacker bots only (legacy behavior)
+#                     1 = mixed attacker/defender recruitment
+#        Default:     1
+#
+
+ECWorldEvents.RaidDefenderBotsEnabled = 1
+
+#
+#    ECWorldEvents.RaidDefenderBotSharePct
+#        Description: Desired defender share (0-100) when mixed RAID bot
+#                     recruitment is enabled.
+#                     Example: 50 = approximately half defenders, half attackers.
+#        Default:     50
+#
+
+ECWorldEvents.RaidDefenderBotSharePct = 50
+
+#
+#    ECWorldEvents.MaxCreatureSpawnsPerTick
+#        Description: Maximum creatures to spawn per server tick during phase
+#                     transitions. Excess creatures are queued and spawned over
+#                     subsequent ticks. Lower = smoother but slower rollout.
+#        Default:     5
+#
+
+ECWorldEvents.MaxCreatureSpawnsPerTick = 5
+
+#
+#    ECWorldEvents.DeferredSpawnStaggerMs
+#        Description: Milliseconds between batches of deferred creature spawns.
+#                     Controls how quickly queued creatures appear after the
+#                     initial batch.
+#        Default:     500
+#
+
+ECWorldEvents.DeferredSpawnStaggerMs = 500
+
+#
+#    ECWorldEvents.MaxBotTeleportsPerTick
+#        Description: Maximum bots to teleport per server tick when an event
+#                     enters the ACTIVE phase. Prevents mass-teleport freezes.
+#        Default:     3
+#
+
+ECWorldEvents.MaxBotTeleportsPerTick = 3

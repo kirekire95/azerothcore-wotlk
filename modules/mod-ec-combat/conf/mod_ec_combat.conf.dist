@@ -1,0 +1,56 @@
+#
+# EC Combat Module Configuration
+# Kill feed, arena/BG tracking, PvP statistics
+#
+
+###################################################################################################
+# KILL STREAKS
+###################################################################################################
+
+# Number of kills required to start a kill streak
+# Default: 3
+ECCombat.StreakStartThreshold = 3
+
+###################################################################################################
+# MULTI-KILLS
+###################################################################################################
+
+# Time window (milliseconds) between kills to count as a multi-kill
+# Default: 10000 (10 seconds)
+ECCombat.MultiKillWindowMs = 10000
+
+###################################################################################################
+# EVENT EMISSION
+###################################################################################################
+
+# Emit PvP kill/death events to the realtime bridge
+# Default: 1
+ECCombat.EmitPvPKills = 1
+
+# Emit notable creature kills (bosses, elites, rares) to the realtime bridge
+# Default: 1
+ECCombat.EmitCreatureKills = 1
+
+# Emit kill streak events (started, milestone, ended)
+# Default: 1
+ECCombat.EmitKillStreaks = 1
+
+# Emit multi-kill events (double, triple, etc.)
+# Default: 1
+ECCombat.EmitMultiKills = 1
+
+# Emit arena match events
+# Default: 1
+ECCombat.EmitArenaEvents = 1
+
+# Emit battleground events
+# Default: 1
+ECCombat.EmitBGEvents = 1
+
+###################################################################################################
+# DEBUG
+###################################################################################################
+
+# Enable debug logging
+# Default: 0
+ECCombat.Debug = 0

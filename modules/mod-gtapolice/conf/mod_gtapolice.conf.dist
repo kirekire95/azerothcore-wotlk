@@ -1,0 +1,644 @@
+#
+# mod-gtapolice Configuration
+# GTA-style police pursuit, arrest, and jail system
+#
+
+###################################################################################################
+#    GENERAL SETTINGS
+###################################################################################################
+
+#
+#    GTAPolice.Enable
+#        Description: Enable mod-gtapolice module
+#        Default:     1 (enabled)
+#
+GTAPolice.Enable = 1
+
+#
+#    GTAPolice.DebugLog
+#        Description: Enable debug logging to server console
+#        Default:     0 (disabled)
+#
+GTAPolice.DebugLog = 1
+
+#
+#    GTAPolice.AffectPlayerbots
+#        Description: Allow this custom police module to pursue and arrest playerbots.
+#                     The normal guard/wanted system remains independent of this setting.
+#        Default:     0 (disabled)
+#
+GTAPolice.AffectPlayerbots = 0
+
+#
+#    GTAPolice.AllowDirectBookingWithoutTransport
+#        Description: Permit teleporting a player to jail when no working arrest vehicle
+#                     or safe arrest spawn exists. Keep disabled so a failed transport
+#                     means the arrest fails instead of silently booking the player.
+#        Default:     0 (disabled)
+#
+GTAPolice.AllowDirectBookingWithoutTransport = 0
+
+###################################################################################################
+#    CREATURE ENTRIES
+###################################################################################################
+
+#
+#    GTAPolice.OfficerEntry
+#        Description: creature_template entry for Police Officer NPC (scanner)
+#        Default:     90010
+#
+GTAPolice.OfficerEntry = 90010
+
+#
+#    GTAPolice.CarEntry
+#        Description: creature_template entry for Police Car vehicle
+#        Default:     90011
+#
+GTAPolice.CarEntry = 90011
+
+#
+#    GTAPolice.CrewOfficerEntry
+#        Description: creature_template entry for Crew Officers that ride in the car
+#                     These officers exit the vehicle, approach, and arrest on foot
+#        Default:     90012
+#
+GTAPolice.CrewOfficerEntry = 90012
+
+#
+#    GTAPolice.UseCustomCarModel
+#        Description: Enable runtime override for the police car display model.
+#                     0 = use creature_template display (default 25871)
+#                     1 = use GTAPolice.CustomCarDisplayId (fallback to GTAPolice.FallbackCarDisplayId)
+#        Default:     0
+#
+GTAPolice.UseCustomCarModel = 0
+
+#
+#    GTAPolice.CustomCarDisplayId
+#        Description: CreatureDisplayInfo ID for custom police car model (from patched CreatureDisplayInfo.dbc).
+#                     Suggested value for EC PoliceCar model is 900400.
+#        Default:     900400
+#
+GTAPolice.CustomCarDisplayId = 900400
+
+#
+#    GTAPolice.FallbackCarDisplayId
+#        Description: Fallback display ID if custom display is missing/unavailable.
+#                     24240 = Alliance Steam Tank (ground vehicle visual).
+#                     25871 = Mekgineer's Chopper (motorcycle).
+#        Default:     24240
+#
+GTAPolice.FallbackCarDisplayId = 24240
+
+###################################################################################################
+#    VEHICLE SEAT SETTINGS
+###################################################################################################
+
+#
+#    GTAPolice.SeatDriver
+#        Description: Vehicle seat index for driver officer (seat 0)
+#        Default:     0
+#
+GTAPolice.SeatDriver = 0
+
+#
+#    GTAPolice.SeatCrewPassenger
+#        Description: Vehicle seat index for passenger officer (seat 1)
+#        Default:     1
+#
+GTAPolice.SeatCrewPassenger = 1
+
+#
+#    GTAPolice.SeatPrisoner
+#        Description: Vehicle seat index for arrested player (seat 2)
+#                     Must be a seat with no vehicle control
+#        Default:     2
+#
+GTAPolice.SeatPrisoner = 2
+
+###################################################################################################
+#    CREW SYSTEM
+###################################################################################################
+
+#
+#    GTAPolice.CrewSize
+#        Description: Number of officers in the car (1 = driver only, 2 = driver + passenger)
+#        Default:     2
+#
+GTAPolice.CrewSize = 2
+
+#
+#    GTAPolice.CrewExitRange
+#        Description: Distance in yards from target for car to stop and crew to exit
+#                     Car transitions from CHASE to APPROACH at this range
+#        Default:     12.0
+#
+GTAPolice.CrewExitRange = 12.0
+
+#
+#    GTAPolice.CrewArrestRange
+#        Description: Distance in yards for crew officer to start arrest procedure
+#        Default:     3.0
+#
+GTAPolice.CrewArrestRange = 3.0
+
+#
+#    GTAPolice.CrewEscapeRange
+#        Description: Distance in yards - if player gets this far during crew approach,
+#                     pursuit is abandoned
+#        Default:     40.0
+#
+GTAPolice.CrewEscapeRange = 40.0
+
+#
+#    GTAPolice.CrewExitDelay
+#        Description: Milliseconds between first officer (driver) exiting and second
+#                     officer (passenger) exiting. Provides stagger effect.
+#        Default:     500
+#
+GTAPolice.CrewExitDelay = 500
+
+#
+#    GTAPolice.CrewLoadingTimeout
+#        Description: Maximum time in milliseconds to wait for driver to re-enter car
+#                     after arrest. Car transitions to TRANSPORT even if driver fails.
+#        Default:     5000 (5 seconds)
+#
+GTAPolice.CrewLoadingTimeout = 5000
+
+#
+#    GTAPolice.CrewRunSpeed
+#        Description: Run speed multiplier for crew officers when on foot
+#        Default:     1.5
+#
+GTAPolice.CrewRunSpeed = 1.5
+
+#
+#    GTAPolice.CrewDespawnNonDriver
+#        Description: Despawn the passenger officer after arrest (before transport)
+#                     Only the driver rides back. 1 = despawn, 0 = keep alive
+#        Default:     1
+#
+GTAPolice.CrewDespawnNonDriver = 1
+
+###################################################################################################
+#    SPELL SETTINGS
+###################################################################################################
+
+#
+#    GTAPolice.SpellArrestStun
+#        Description: Spell ID for stun effect during arrest (0 = disabled)
+#        Default:     853 (Hammer of Justice)
+#
+GTAPolice.SpellArrestStun = 853
+
+#
+#    GTAPolice.SpellArrestRoot
+#        Description: Spell ID for root effect during arrest (0 = disabled)
+#        Default:     122 (Frost Nova)
+#
+GTAPolice.SpellArrestRoot = 122
+
+#
+#    GTAPolice.SpellSirenAura
+#        Description: Spell ID for siren sound aura on car (0 = disabled)
+#        Default:     0
+#
+GTAPolice.SpellSirenAura = 0
+
+###################################################################################################
+#    OFFICER BEHAVIOR
+###################################################################################################
+
+#
+#    GTAPolice.OfficerScanRange
+#        Description: Range in yards for scanner officers to detect wanted players
+#        Default:     60.0
+#
+GTAPolice.OfficerScanRange = 60.0
+
+#
+#    GTAPolice.OfficerScanInterval
+#        Description: How often scanner officers scan for wanted players (milliseconds)
+#        Default:     1500
+#
+GTAPolice.OfficerScanInterval = 1500
+
+###################################################################################################
+#    PURSUIT SETTINGS
+###################################################################################################
+
+#
+#    GTAPolice.CarSpawnDistance
+#        Description: Distance in yards to spawn car from officer/player
+#        Default:     18.0
+#
+GTAPolice.CarSpawnDistance = 18.0
+
+#
+#    GTAPolice.CarChaseRepathDistance
+#        Description: Distance target must move before car updates chase path
+#        Default:     2.0
+#
+GTAPolice.CarChaseRepathDistance = 2.0
+
+#
+#    GTAPolice.CarArrestRange
+#        Description: Distance in yards for car-only arrest (fallback, no crew)
+#        Default:     6.0
+#
+GTAPolice.CarArrestRange = 6.0
+
+#
+#    GTAPolice.CarChaseTimeout
+#        Description: Maximum chase duration before giving up (milliseconds)
+#        Default:     45000 (45 seconds)
+#
+GTAPolice.CarChaseTimeout = 45000
+
+#
+#    GTAPolice.CarEscapeDistance
+#        Description: Distance in yards for player to escape pursuit during chase
+#        Default:     100.0
+#
+GTAPolice.CarEscapeDistance = 100.0
+
+###################################################################################################
+#    TRANSPORT SETTINGS
+###################################################################################################
+
+#
+#    GTAPolice.TransportFailsafe
+#        Description: Maximum transport duration before releasing (milliseconds)
+#        Default:     20000 (20 seconds)
+#
+GTAPolice.TransportFailsafe = 20000
+
+#
+#    GTAPolice.ArrivalDistance
+#        Description: Distance in yards to consider arrived at jail
+#        Default:     8.0
+#
+GTAPolice.ArrivalDistance = 8.0
+
+###################################################################################################
+#    JAIL SETTINGS
+###################################################################################################
+
+#
+#    GTAPolice.JailMap
+#        Description: Map ID for jail location (0 = Eastern Kingdoms)
+#        Default:     0
+#
+GTAPolice.JailMap = 0
+
+#
+#    GTAPolice.JailX
+#        Description: X coordinate for jail
+#        Default:     -8823.0 (Stormwind Stockade area)
+#
+GTAPolice.JailX = -8823.0
+
+#
+#    GTAPolice.JailY
+#        Description: Y coordinate for jail
+#        Default:     622.0
+#
+GTAPolice.JailY = 622.0
+
+#
+#    GTAPolice.JailZ
+#        Description: Z coordinate for jail
+#        Default:     95.0
+#
+GTAPolice.JailZ = 95.0
+
+#
+#    GTAPolice.JailO
+#        Description: Orientation for jail spawn
+#        Default:     0.0
+#
+GTAPolice.JailO = 0.0
+
+###################################################################################################
+#    GUARD SYSTEM INTEGRATION
+###################################################################################################
+
+#
+#    GTAPolice.UseGuardSystemWanted
+#        Description: Use mod-ec-guard-system wanted stars instead of spell aura
+#                     Requires mod-ec-guard-system to be loaded
+#        Default:     1 (enabled)
+#
+GTAPolice.UseGuardSystemWanted = 1
+
+#
+#    GTAPolice.MinWantedStarsForPursuit
+#        Description: Minimum wanted stars to trigger pursuit (1-5)
+#        Default:     2
+#
+GTAPolice.MinWantedStarsForPursuit = 2
+
+#
+#    GTAPolice.MinWantedStarsForArrest
+#        Description: Minimum wanted stars for arrest (on sight at low HP)
+#        Default:     3
+#
+GTAPolice.MinWantedStarsForArrest = 3
+
+#
+#    GTAPolice.ClearWantedOnJail
+#        Description: Clear wanted status when player is jailed
+#        Default:     1 (enabled)
+#
+GTAPolice.ClearWantedOnJail = 1
+
+###################################################################################################
+#    BRIDGE INTEGRATION
+###################################################################################################
+
+#
+#    GTAPolice.EmitBridgeEvents
+#        Description: Emit events to EC Realtime Bridge for GraphQL subscriptions
+#        Default:     1 (enabled)
+#
+GTAPolice.EmitBridgeEvents = 1
+
+###################################################################################################
+#    STAR DECAY SYSTEM
+###################################################################################################
+
+#
+#    GTAPolice.StarDecayEnabled
+#        Description: Enable automatic wanted star decay when evading police
+#                     In GTA-style games, if you evade police long enough, your
+#                     wanted stars decrease over time
+#        Default:     1 (enabled)
+#
+GTAPolice.StarDecayEnabled = 1
+
+#
+#    GTAPolice.StarDecayIntervalMs
+#        Description: Time in milliseconds between star decay ticks
+#                     Default is 1 minute per star
+#        Default:     60000 (1 minute)
+#
+GTAPolice.StarDecayIntervalMs = 60000
+
+#
+#    GTAPolice.StarDecayGracePeriodMs
+#        Description: Time after committing a crime before decay can start
+#                     Prevents stars from decaying immediately after committing crime
+#        Default:     30000 (30 seconds)
+#
+GTAPolice.StarDecayGracePeriodMs = 30000
+
+#
+#    GTAPolice.StarDecayRequiredEvasionMs
+#        Description: How long player must evade police before decay starts
+#                     Player must be out of pursuit (no police nearby) for this long
+#        Default:     30000 (30 seconds)
+#
+GTAPolice.StarDecayRequiredEvasionMs = 30000
+
+###################################################################################################
+#    MULTI-CAR PURSUIT SYSTEM
+###################################################################################################
+
+#
+#    GTAPolice.MaxCarsPerPursuit
+#        Description: Maximum number of police cars that can pursue a single player
+#                     Prevents overwhelming the player with too many cars
+#        Default:     4
+#
+GTAPolice.MaxCarsPerPursuit = 4
+
+#
+#    GTAPolice.CarsAtStar1 through GTAPolice.CarsAtStar5
+#        Description: Number of cars dispatched at each wanted level (1-5 stars)
+#                     This creates GTA-style escalation where higher wanted levels
+#                     result in more police cars chasing you
+#        Defaults:    1, 1, 2, 3, 4 (gradual escalation)
+#
+GTAPolice.CarsAtStar1 = 1
+GTAPolice.CarsAtStar2 = 1
+GTAPolice.CarsAtStar3 = 2
+GTAPolice.CarsAtStar4 = 3
+GTAPolice.CarsAtStar5 = 4
+
+#
+#    GTAPolice.CarReinforceIntervalMs
+#        Description: Time between checking for reinforcement needs (milliseconds)
+#                     If cars are destroyed, new ones will spawn after this interval
+#        Default:     30000 (30 seconds)
+#
+GTAPolice.CarReinforceIntervalMs = 30000
+
+#
+#    GTAPolice.CarSpawnMinDistance
+#        Description: Minimum distance in yards from target for car spawn
+#                     Cars spawn to the side/front so the player can see them
+#        Default:     12.0
+#
+GTAPolice.CarSpawnMinDistance = 12.0
+
+#
+#    GTAPolice.CarSpawnMaxDistance
+#        Description: Maximum distance in yards from target for car spawn
+#                     Cars won't spawn too far away to ensure quick pursuit
+#        Default:     25.0
+#
+GTAPolice.CarSpawnMaxDistance = 25.0
+
+###################################################################################################
+#    RADIO CHATTER SYSTEM
+###################################################################################################
+
+#
+#    GTAPolice.RadioChatterEnabled
+#        Description: Enable police radio chatter during pursuits
+#                     Officers broadcast status updates and chatter lines
+#                     to nearby players via creature say/yell
+#        Default:     1 (enabled)
+#
+GTAPolice.RadioChatterEnabled = 1
+
+#
+#    GTAPolice.RadioChatterIntervalMs
+#        Description: Time in milliseconds between random radio chatter lines
+#                     during an active pursuit
+#        Default:     8000 (8 seconds)
+#
+GTAPolice.RadioChatterIntervalMs = 8000
+
+###################################################################################################
+#    BRIBE SYSTEM
+###################################################################################################
+
+#
+#    GTAPolice.BribeEnabled
+#        Description: Enable player bribing system
+#                     Players can attempt to bribe officers to reduce wanted level
+#                     Costs gold based on wanted stars
+#        Default:     1 (enabled)
+#
+GTAPolice.BribeEnabled = 1
+
+#
+#    GTAPolice.BribeCostPerStar
+#        Description: Gold cost per wanted star for bribe (in copper)
+#                     50000 copper = 5 gold per star
+#                     A 3-star bribe costs 15 gold
+#        Default:     50000 (5 gold per star)
+#
+GTAPolice.BribeCostPerStar = 50000
+
+#
+#    GTAPolice.BribeCooldownMs
+#        Description: Cooldown per player between bribe attempts (milliseconds)
+#                     Prevents spamming bribes to clear wanted instantly
+#        Default:     300000 (5 minutes)
+#
+GTAPolice.BribeCooldownMs = 300000
+
+#
+#    GTAPolice.BribeMaxStars
+#        Description: Maximum wanted star level that can be bribed away
+#                     Players with more stars must use Pay-n-Spray or wait for decay
+#                     Set to 5 to allow bribing at any level
+#        Default:     3
+#
+GTAPolice.BribeMaxStars = 3
+
+###################################################################################################
+#    PAY-N-SPRAY (WANTED CLEARING NPC)
+###################################################################################################
+
+#
+#    GTAPolice.PaynSprayEnabled
+#        Description: Enable the Pay-n-Spray NPC system
+#                     A shady NPC vendor who clears wanted level for gold
+#                     Works at any star level (unlike bribe which has a max)
+#                     Cannot be used during active pursuit
+#        Default:     1 (enabled)
+#
+GTAPolice.PaynSprayEnabled = 1
+
+#
+#    GTAPolice.PaynSprayCostPerStar
+#        Description: Gold cost per wanted star for Pay-n-Spray (in copper)
+#                     100000 copper = 10 gold per star (more expensive than bribe)
+#                     A 5-star clearing costs 50 gold
+#        Default:     100000 (10 gold per star)
+#
+GTAPolice.PaynSprayCostPerStar = 100000
+
+#
+#    GTAPolice.PaynSprayCooldownMs
+#        Description: Cooldown per player between Pay-n-Spray uses (milliseconds)
+#                     Longer cooldown than bribe to balance the higher capability
+#        Default:     600000 (10 minutes)
+#
+GTAPolice.PaynSprayCooldownMs = 600000
+
+#
+#    GTAPolice.PaynSprayNPCEntry
+#        Description: creature_template entry for the Pay-n-Spray vendor NPC
+#        Default:     90015
+#
+GTAPolice.PaynSprayNPCEntry = 90015
+
+###################################################################################################
+#    ZONE HEAT SYSTEM
+###################################################################################################
+
+#
+#    GTAPolice.ZoneHeatEnabled
+#        Description: Enable the zone heat tracking system
+#                     Zones accumulate "heat" as crimes are committed in them
+#                     Higher heat zones have more aggressive police responses
+#        Default:     1 (enabled)
+#
+GTAPolice.ZoneHeatEnabled = 1
+
+#
+#    GTAPolice.ZoneHeatDecayIntervalMs
+#        Description: How often zone heat decays (milliseconds)
+#                     Heat is reduced every tick by ZoneHeatDecayAmount
+#        Default:     60000 (1 minute)
+#
+GTAPolice.ZoneHeatDecayIntervalMs = 60000
+
+#
+#    GTAPolice.ZoneHeatDecayAmount
+#        Description: Heat points removed per decay tick
+#                     Higher values = faster cooling
+#        Default:     5
+#
+GTAPolice.ZoneHeatDecayAmount = 5
+
+#
+#    GTAPolice.ZoneHeatPerCrime
+#        Description: Heat points added per crime committed in a zone
+#                     Each wanted level increase adds this much heat
+#        Default:     10
+#
+GTAPolice.ZoneHeatPerCrime = 10
+
+#
+#    GTAPolice.ZoneHeatThresholdLow
+#        Description: Heat threshold for "warm" zone status
+#                     Below this = COLD (normal patrol)
+#                     Above this = WARM (increased patrol frequency)
+#        Default:     30
+#
+GTAPolice.ZoneHeatThresholdLow = 30
+
+#
+#    GTAPolice.ZoneHeatThresholdHigh
+#        Description: Heat threshold for "hot" zone status
+#                     Above this = HOT (aggressive dispatch, faster pursuit response)
+#                     Combined with stars, increases cars dispatched
+#        Default:     80
+#
+GTAPolice.ZoneHeatThresholdHigh = 80
+
+###################################################################################################
+#    WITNESS SYSTEM INTEGRATION
+###################################################################################################
+
+#
+#    GTAPolice.WitnessAlertsEnabled
+#        Description: React to witness events from mod-ec-guard-system
+#                     When enabled, witness activity affects zone heat:
+#                     - Witness detected: minor heat increase (yelling draws attention)
+#                     - Witness confirmed: bonus heat (crime was publicly reported)
+#                     - Witness suppressed: heat reduction (crime was covered up)
+#                     Requires mod-ec-guard-system to be loaded
+#        Default:     1 (enabled)
+#
+GTAPolice.WitnessAlertsEnabled = 1
+
+#
+#    GTAPolice.WitnessDetectedHeat
+#        Description: Zone heat points added when a witness detects a crime
+#                     This represents the commotion from the witness yelling
+#        Default:     5
+#
+GTAPolice.WitnessDetectedHeat = 5
+
+#
+#    GTAPolice.WitnessConfirmedHeatBonus
+#        Description: Extra zone heat when a witness successfully reports a crime
+#                     This is on top of the normal crime heat from OnWantedLevelChanged
+#        Default:     10
+#
+GTAPolice.WitnessConfirmedHeatBonus = 10
+
+#
+#    GTAPolice.WitnessSuppressedHeatReduction
+#        Description: Zone heat points removed when a witness is silenced
+#                     Killing the witness covers up the crime and reduces local attention
+#        Default:     3
+#
+GTAPolice.WitnessSuppressedHeatReduction = 3

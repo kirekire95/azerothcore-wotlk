@@ -1,0 +1,353 @@
+########################################
+# mod-alive-world Configuration
+########################################
+#
+# Creates a living, breathing game world where bots perceive, remember,
+# and react to world events using AI-powered decision making.
+#
+# Author: EC
+# Date: 2025-01-25
+#
+
+########################################
+# GENERAL SETTINGS
+########################################
+
+# Enable the Alive World system
+# Default: 1 (enabled)
+AliveWorld.Enable = 1
+
+# Main update interval in milliseconds
+# Lower values = more responsive but higher CPU
+# Default: 1000 (1 second)
+AliveWorld.UpdateIntervalMs = 1000
+
+# Enable debug output to server console
+# Default: 0 (disabled)
+AliveWorld.Debug = 0
+
+# Debug log level (0=ERROR, 1=WARN, 2=INFO, 3=DEBUG, 4=TRACE)
+# Default: 2
+AliveWorld.DebugLogLevel = 2
+
+########################################
+# INTELLIGENCE TIERING
+########################################
+
+# Intelligence tiering determines how many bots can use full AI at once.
+# Tier 1: Full AI - Near real players, in combat, recently spoken to
+# Tier 2: Aware - Same zone as players, queued AI access
+# Tier 3: Passive - No players nearby, scripted behavior only
+
+# Maximum Tier 1 bots (full AI access)
+# These bots have immediate LLM access for complex decisions
+# Default: 10
+AliveWorld.MaxTier1Bots = 10
+
+# Maximum Tier 2 bots (aware, queued AI)
+# These bots log events and have queued LLM access
+# Default: 100
+AliveWorld.MaxTier2Bots = 100
+
+# Distance (yards) to be considered "near" a real player (Tier 1)
+# Default: 100
+AliveWorld.Tier1Distance = 100
+
+# How often to recalculate bot tiers (milliseconds)
+# Default: 5000 (5 seconds)
+AliveWorld.TierUpdateIntervalMs = 5000
+
+########################################
+# EVENT COLLECTOR
+########################################
+
+# Enable the Event Collector
+# Captures combat, social, world, and zone events
+# Default: 1
+AliveWorld.EventCollector.Enable = 1
+
+# Maximum events to keep in the recent buffer
+# Older events are removed when limit is reached
+# Default: 500
+AliveWorld.EventCollector.MaxBufferSize = 500
+
+# How long events stay in buffer before expiring (seconds)
+# Default: 600 (10 minutes)
+AliveWorld.EventCollector.EventTTLSeconds = 600
+
+# Enable database persistence for events
+# When enabled, events are saved to alive_world_events table
+# and restored on server restart for continuity
+# Default: 1 (enabled)
+AliveWorld.EventCollector.Persist.Enable = 1
+
+# How often to flush events to database (milliseconds)
+# Lower values = more real-time but higher DB load
+# Default: 5000 (5 seconds)
+AliveWorld.EventCollector.Persist.IntervalMs = 5000
+
+# Maximum events to write per flush batch
+# Higher values = fewer transactions but larger writes
+# Default: 50
+AliveWorld.EventCollector.Persist.BatchSize = 50
+
+########################################
+# WORLD STATE MANAGER
+########################################
+
+# Enable zone state tracking
+# Tracks player counts, activity levels, danger levels per zone
+# Default: 1
+AliveWorld.WorldState.Enable = 1
+
+# How often to update zone states (milliseconds)
+# Default: 30000 (30 seconds)
+AliveWorld.WorldState.UpdateIntervalMs = 30000
+
+# Activity level threshold for "hot zone" (0-10)
+# Zones above this are considered active
+# Default: 3
+AliveWorld.WorldState.HotZoneThreshold = 3
+
+########################################
+# GOSSIP SYSTEM
+########################################
+
+# Enable gossip spreading between bots
+# Default: 1
+# NOTE: The Enable flag is not yet checked - gossip is controlled by
+#       AliveWorld.EventCollector.Enable and the gossip pool settings below.
+AliveWorld.Gossip.Enable = 1
+
+# Maximum gossip items in the pool
+# Default: 50
+AliveWorld.Gossip.MaxPoolSize = 50
+
+# How long gossip items live before expiring (seconds)
+# Default: 3600 (1 hour)
+AliveWorld.Gossip.ItemTTLSeconds = 3600
+
+# Chance (0-100) for a bot to share gossip when near another bot
+# Default: 30
+AliveWorld.Gossip.SpreadChance = 30
+
+# Distance (yards) for gossip spreading
+# Default: 50
+AliveWorld.Gossip.SpreadDistance = 50
+
+# Minimum importance (1-10) for gossip to be created
+# Default: 3
+AliveWorld.Gossip.MinImportance = 3
+
+# Enable database persistence for gossip
+# When enabled, gossip is saved to alive_world_gossip table
+# and restored on server restart for continuity
+# Default: 1 (enabled)
+AliveWorld.Gossip.Persist.Enable = 1
+
+# How often to flush gossip to database (milliseconds)
+# Lower values = more real-time but higher DB load
+# Default: 10000 (10 seconds)
+AliveWorld.Gossip.Persist.IntervalMs = 10000
+
+# Maximum gossip items to write per flush batch
+# Default: 20
+AliveWorld.Gossip.Persist.BatchSize = 20
+
+########################################
+# BOT MEMORY SYSTEM
+########################################
+
+# Enable per-bot memory
+# Stores combat history, social relationships, personality traits
+# Default: 1
+AliveWorld.BotMemory.Enable = 1
+
+# Maximum combat encounters to remember per bot
+# Default: 5
+AliveWorld.BotMemory.MaxCombatLog = 5
+
+# Maximum social connections per bot
+# Default: 20
+AliveWorld.BotMemory.MaxSocialConnections = 20
+
+# How often to persist memory to database (seconds)
+# Default: 300 (5 minutes)
+AliveWorld.BotMemory.PersistIntervalSeconds = 300
+
+# Enable personality evolution
+# Bot personality traits change based on experiences
+# Default: 1
+AliveWorld.BotMemory.PersonalityEvolution = 1
+
+# Chance (0-100%) for each personality trait to be extreme
+# Extreme traits are either very low (0.0-0.25) or very high (0.75-1.0)
+# Normal traits are moderate (0.3-0.7)
+# At 10%, expect ~1 in 10 bots to have at least one extreme trait
+# Higher values create more distinctive, memorable bot personalities
+# Default: 10
+AliveWorld.ExtremePersonalityChance = 10
+
+########################################
+# HUNTER PROFILE SYSTEM
+########################################
+
+# Enable relentless hunter profiles loaded from:
+# alive_world_bot_personality_overrides
+# Default: 1
+AliveWorld.Hunter.Enable = 1
+
+# How often to evaluate hunter profiles (milliseconds)
+# Lower values react faster but issue more commands.
+# Default: 1500
+AliveWorld.Hunter.UpdateIntervalMs = 1500
+
+# Allow hunters to keep pursuing targets outside their local pursuit radius.
+# If enabled, hunters can chase across zones and continue pressure beyond the
+# per-profile hunter_pursuit_radius value.
+# Default: 0
+AliveWorld.Hunter.CrossZoneEnable = 0
+
+# Allow cross-map relocation by teleport when cross-zone hunting is enabled.
+# This is what enables continent/map hopping to keep hunting a target.
+# Default: 0
+AliveWorld.Hunter.CrossMapTeleportEnable = 0
+
+# Minimum delay between hunter teleport relocations (milliseconds).
+# Default: 30000 (30 seconds)
+AliveWorld.Hunter.CrossMapTeleportCooldownMs = 30000
+
+########################################
+# AI DECISION ENGINE
+########################################
+
+# Enable AI decision making
+# Requires mod-ollama-chat for LLM access
+# Default: 1
+AliveWorld.AI.Enable = 1
+
+# Maximum concurrent LLM requests
+# Default: 5
+AliveWorld.AI.MaxConcurrentRequests = 5
+
+# Request timeout in seconds
+# Default: 30
+AliveWorld.AI.RequestTimeoutSeconds = 30
+
+# Enable response caching
+# Similar situations use cached responses instead of new LLM calls
+# Default: 1
+AliveWorld.AI.ResponseCache.Enable = 1
+
+# Maximum cached responses
+# Default: 200
+AliveWorld.AI.ResponseCache.MaxSize = 200
+
+# Cache TTL in seconds
+# Default: 1800 (30 minutes)
+AliveWorld.AI.ResponseCache.TTLSeconds = 1800
+
+# Ollama endpoint used by the AliveWorld AI decision engine.
+# These values preserve the built-in local defaults explicitly.
+OllamaChat.Host = 127.0.0.1
+OllamaChat.Port = 11434
+
+########################################
+# BEHAVIOR EXECUTOR
+########################################
+
+# Enable execution of queued AliveWorld behaviors.
+# Default: 1
+AliveWorld.BehaviorExecutor.Enable = 1
+
+# Maximum behaviors processed per update tick.
+# Default: 50
+AliveWorld.BehaviorExecutor.MaxPerTick = 50
+
+# Per-behavior execution cooldown (milliseconds).
+# Default: 100
+AliveWorld.BehaviorExecutor.CooldownMs = 100
+
+########################################
+# HTTP ENDPOINT (Dashboard Integration)
+########################################
+
+# Enable HTTP endpoint for external dashboard
+# Default: 1
+AliveWorld.HTTP.Enable = 1
+
+# HTTP server port
+# Default: 8090
+AliveWorld.HTTP.Port = 8090
+
+# Allowed CORS origins (comma-separated)
+# Default: http://localhost:8081 (Azeroth Command Console)
+AliveWorld.HTTP.CorsOrigins = http://localhost:8081,http://localhost:3000
+
+# Require API key for HTTP access
+# Default: 0 (disabled for local development)
+AliveWorld.HTTP.RequireApiKey = 0
+
+# API key (if RequireApiKey = 1)
+# Generate a secure random key for production
+AliveWorld.HTTP.ApiKey = change-me-in-production
+
+########################################
+# NODE.JS DAEMON CONNECTION
+########################################
+# The C++ module connects to an external Node.js daemon for AI processing.
+# This allows hot-reloading AI logic without recompiling, crash isolation,
+# and better LLM/JSON handling.
+
+# Shared secret for authenticating connections from the Node.js backend
+# This MUST match the ALIVE_WORLD_SECRET environment variable in wow-control-backend
+# Generate a secure random value for production: openssl rand -hex 32
+# Default: dev-secret-change-me (CHANGE IN PRODUCTION!)
+AliveWorld.Daemon.SharedSecret = dev-secret-change-me
+
+# Enable connection to Node.js daemon
+# When disabled, the module uses internal fallback behavior
+# Default: 1
+AliveWorld.Daemon.Enable = 1
+
+# Daemon host (usually localhost)
+# Default: 127.0.0.1
+AliveWorld.Daemon.Host = 127.0.0.1
+
+# Daemon TCP port
+# Default: 8091
+AliveWorld.Daemon.Port = 8091
+
+# Reconnect interval when daemon is down (milliseconds)
+# Default: 5000 (5 seconds)
+AliveWorld.Daemon.ReconnectInterval = 5000
+
+# Heartbeat interval to check daemon health (milliseconds)
+# Default: 10000 (10 seconds)
+AliveWorld.Daemon.HeartbeatInterval = 10000
+
+# Use fallback behavior when daemon is disconnected
+# When enabled, bots use basic scripted behavior if daemon is unavailable
+# When disabled, AI features are simply turned off
+# Default: 1
+AliveWorld.Daemon.UseFallback = 1
+
+########################################
+# STRATEGY ADAPTATION
+########################################
+
+# Enable bot strategy adaptation based on events and memory
+# Default: 1
+AliveWorld.Strategy.Enable = 1
+
+# Aggression change per PvP encounter (positive for wins, negative for losses)
+# Default: 0.05
+AliveWorld.Strategy.AggressionDelta = 0.05
+
+# Helpfulness change per group activity
+# Default: 0.03
+AliveWorld.Strategy.HelpfulnessDelta = 0.03
+
+# How often to trigger strategy reevaluation (milliseconds)
+# Default: 60000 (1 minute)
+AliveWorld.Strategy.ReevaluateIntervalMs = 60000

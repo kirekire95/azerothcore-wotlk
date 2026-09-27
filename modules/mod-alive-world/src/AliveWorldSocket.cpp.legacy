@@ -1,0 +1,899 @@
+/*
+ * mod-alive-world - TCP Socket Communication
+ * Copyright (C) 2025 EC
+ */
+
+#include "AliveWorldSocket.h"
+#include "AliveWorldManager.h"
+
+#include "Config.h"
+#include "Creature.h"
+#include "Log.h"
+#include "Player.h"
+#include "Unit.h"
+
+#include <arpa/inet.h>
+#include <cctype>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <openssl/crypto.h>
+#include <sstream>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <unordered_map>
+
+// ============================================================================
+// JSON UTILITIES
+// ============================================================================
+
+namespace AliveWorld
+{
+
+// JSON string escaping for safe serialization (prevents injection attacks)
+static std::string EscapeJsonString(const std::string& input)
+{
+    std::string output;
+    output.reserve(input.size() + 16); // Pre-allocate with some extra space
+
+    for (char c : input)
+    {
+        switch (c)
+        {
+            case '"':  output += "\\\""; break;
+            case '\\': output += "\\\\"; break;
+            case '\b': output += "\\b";  break;
+            case '\f': output += "\\f";  break;
+            case '\n': output += "\\n";  break;
+            case '\r': output += "\\r";  break;
+            case '\t': output += "\\t";  break;
+            default:
+                // Escape control characters (0x00-0x1F)
+                if (static_cast<unsigned char>(c) < 0x20)
+                {
+                    char buf[8];
+                    snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+                    output += buf;
+                }
+                else
+                {
+                    output += c;
+                }
+                break;
+        }
+    }
+    return output;
+}
+
+// Safe JSON field extraction (returns empty string if not found)
+static std::string ExtractJsonString(const std::string& json, const std::string& key)
+{
+    std::string searchKey = "\"" + key + "\"";
+    size_t keyPos = json.find(searchKey);
+    if (keyPos == std::string::npos)
+        return "";
+
+    size_t colonPos = json.find(':', keyPos + searchKey.length());
+    if (colonPos == std::string::npos)
+        return "";
+
+    // Skip whitespace
+    size_t valueStart = json.find_first_not_of(" \t\n\r", colonPos + 1);
+    if (valueStart == std::string::npos)
+        return "";
+
+    // Check if it's a string value
+    if (json[valueStart] != '"')
+        return "";
+
+    // Find end of string (handling escaped quotes)
+    size_t valueEnd = valueStart + 1;
+    while (valueEnd < json.length())
+    {
+        if (json[valueEnd] == '"' && json[valueEnd - 1] != '\\')
+            break;
+        valueEnd++;
+    }
+
+    if (valueEnd >= json.length())
+        return "";
+
+    return json.substr(valueStart + 1, valueEnd - valueStart - 1);
+}
+
+// Safe JSON integer extraction (returns defaultValue if not found or invalid)
+static int64_t ExtractJsonInt(const std::string& json, const std::string& key, int64_t defaultValue = 0)
+{
+    std::string searchKey = "\"" + key + "\"";
+    size_t keyPos = json.find(searchKey);
+    if (keyPos == std::string::npos)
+        return defaultValue;
+
+    size_t colonPos = json.find(':', keyPos + searchKey.length());
+    if (colonPos == std::string::npos)
+        return defaultValue;
+
+    // Skip whitespace
+    size_t valueStart = json.find_first_not_of(" \t\n\r", colonPos + 1);
+    if (valueStart == std::string::npos)
+        return defaultValue;
+
+    // Check for negative sign or digit
+    if (json[valueStart] != '-' && !std::isdigit(json[valueStart]))
+        return defaultValue;
+
+    try
+    {
+        size_t endPos;
+        int64_t value = std::stoll(json.substr(valueStart), &endPos);
+        return value;
+    }
+    catch (const std::exception&)
+    {
+        return defaultValue;
+    }
+}
+
+// ============================================================================
+// SINGLETON
+// ============================================================================
+
+AliveWorldSocket* AliveWorldSocket::Instance()
+{
+    static AliveWorldSocket instance;
+    return &instance;
+}
+
+AliveWorldSocket::AliveWorldSocket()
+    : _host("127.0.0.1")
+    , _port(8091)
+    , _reconnectIntervalMs(5000)
+    , _heartbeatIntervalMs(10000)
+    , _socketFd(-1)
+    , _connected(false)
+    , _daemonAvailable(false)
+    , _authenticated(false)
+    , _shouldRun(false)
+    , _eventsSent(0)
+    , _commandsReceived(0)
+    , _reconnectCount(0)
+{
+}
+
+AliveWorldSocket::~AliveWorldSocket()
+{
+    Shutdown();
+}
+
+// ============================================================================
+// LIFECYCLE
+// ============================================================================
+
+void AliveWorldSocket::Initialize()
+{
+    _host = sConfigMgr->GetOption<std::string>("AliveWorld.Daemon.Host", "127.0.0.1");
+    _port = sConfigMgr->GetOption<uint16_t>("AliveWorld.Daemon.Port", 8091);
+    _reconnectIntervalMs = sConfigMgr->GetOption<uint32_t>("AliveWorld.Daemon.ReconnectInterval", 5000);
+    _heartbeatIntervalMs = sConfigMgr->GetOption<uint32_t>("AliveWorld.Daemon.HeartbeatInterval", 10000);
+
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Initializing connection to {}:{}",
+        _host, _port);
+
+    _shouldRun = true;
+    _lastHeartbeat = std::chrono::steady_clock::now();
+    _lastDaemonResponse = std::chrono::steady_clock::now();
+
+    // Start connection thread (handles connect/reconnect)
+    _connectionThread = std::make_unique<std::thread>(&AliveWorldSocket::ConnectionThread, this);
+
+    // Start send thread
+    _sendThread = std::make_unique<std::thread>(&AliveWorldSocket::SendThread, this);
+
+    // Start receive thread
+    _receiveThread = std::make_unique<std::thread>(&AliveWorldSocket::ReceiveThread, this);
+
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Threads started");
+}
+
+void AliveWorldSocket::Shutdown()
+{
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Shutting down");
+
+    _shouldRun = false;
+
+    // Wake up send thread
+    _eventQueueCV.notify_all();
+
+    // Close socket to unblock receive thread
+    Disconnect();
+
+    // Wait for threads
+    if (_connectionThread && _connectionThread->joinable())
+        _connectionThread->join();
+    if (_sendThread && _sendThread->joinable())
+        _sendThread->join();
+    if (_receiveThread && _receiveThread->joinable())
+        _receiveThread->join();
+
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Shutdown complete. "
+        "Events sent: {}, Commands received: {}, Reconnects: {}",
+        _eventsSent.load(), _commandsReceived.load(), _reconnectCount.load());
+}
+
+// ============================================================================
+// CONNECTION MANAGEMENT
+// ============================================================================
+
+void AliveWorldSocket::ConnectionThread()
+{
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Connection thread started");
+
+    while (_shouldRun)
+    {
+        if (!_connected)
+        {
+            if (Connect())
+            {
+                LOG_INFO("module.alive-world", "AliveWorld Socket: Connected to daemon");
+                _connected = true;
+                _daemonAvailable = true;
+
+                // Send startup event
+                EmitSystemEvent(SocketEventType::SYSTEM_STARTUP,
+                    "{\"version\":\"1.0\",\"module\":\"mod-alive-world\"}");
+            }
+            else
+            {
+                // Wait before retry
+                std::this_thread::sleep_for(std::chrono::milliseconds(_reconnectIntervalMs));
+            }
+        }
+        else
+        {
+            // Check for heartbeat timeout (daemon not responding)
+            auto now = std::chrono::steady_clock::now();
+            std::chrono::steady_clock::time_point lastResponse;
+            {
+                std::lock_guard<std::mutex> lock(_timeMutex);
+                lastResponse = _lastDaemonResponse;
+            }
+            auto sinceLastResponse = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - lastResponse).count();
+
+            if (sinceLastResponse > _heartbeatIntervalMs * 3)
+            {
+                LOG_WARN("module.alive-world", "AliveWorld Socket: Daemon not responding, reconnecting");
+                _daemonAvailable = false;
+                Disconnect();
+            }
+
+            // Send periodic heartbeat
+            auto sinceLastHeartbeat = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - _lastHeartbeat).count();
+
+            if (sinceLastHeartbeat > _heartbeatIntervalMs)
+            {
+                EmitSystemEvent(SocketEventType::SYSTEM_HEARTBEAT);
+                _lastHeartbeat = now;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
+    }
+}
+
+bool AliveWorldSocket::Connect()
+{
+    // Close any existing socket before creating a new one (prevents FD leak on retry)
+    if (_socketFd >= 0)
+    {
+        close(_socketFd);
+        _socketFd = -1;
+    }
+
+    _socketFd = socket(AF_INET, SOCK_STREAM, 0);
+    if (_socketFd < 0)
+    {
+        LOG_ERROR("module.alive-world", "AliveWorld Socket: Failed to create socket: {}",
+            strerror(errno));
+        return false;
+    }
+
+    // Set TCP_NODELAY for low latency
+    int flag = 1;
+    if (setsockopt(_socketFd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0)
+    {
+        LOG_WARN("module.alive-world", "AliveWorld Socket: Failed to set TCP_NODELAY: {}",
+            strerror(errno));
+    }
+
+    // Set socket timeout
+    struct timeval timeout;
+    timeout.tv_sec = 5;
+    timeout.tv_usec = 0;
+    if (setsockopt(_socketFd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        LOG_WARN("module.alive-world", "AliveWorld Socket: Failed to set SO_RCVTIMEO: {}",
+            strerror(errno));
+    }
+    if (setsockopt(_socketFd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0)
+    {
+        LOG_WARN("module.alive-world", "AliveWorld Socket: Failed to set SO_SNDTIMEO: {}",
+            strerror(errno));
+    }
+
+    struct sockaddr_in serverAddr;
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(_port);
+
+    if (inet_pton(AF_INET, _host.c_str(), &serverAddr.sin_addr) <= 0)
+    {
+        LOG_ERROR("module.alive-world", "AliveWorld Socket: Invalid address: {}", _host);
+        close(_socketFd);
+        _socketFd = -1;
+        return false;
+    }
+
+    if (connect(_socketFd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0)
+    {
+        // Don't spam logs during normal reconnect attempts
+        if (++_connectFailureCount % 10 == 1)
+        {
+            LOG_DEBUG("module.alive-world", "AliveWorld Socket: Daemon not available at {}:{} "
+                "(will keep trying)", _host, _port);
+        }
+        close(_socketFd);
+        _socketFd = -1;
+        return false;
+    }
+
+    _reconnectCount++;
+    return true;
+}
+
+void AliveWorldSocket::Disconnect()
+{
+    if (_socketFd >= 0)
+    {
+        close(_socketFd);
+        _socketFd = -1;
+    }
+    _connected = false;
+    _authenticated = false;
+}
+
+// ============================================================================
+// SEND THREAD
+// ============================================================================
+
+void AliveWorldSocket::SendThread()
+{
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Send thread started");
+
+    while (_shouldRun)
+    {
+        SocketEvent event;
+        bool hasEvent = false;
+
+        {
+            std::unique_lock<std::mutex> lock(_eventQueueMutex);
+
+            // Wait for events or shutdown
+            _eventQueueCV.wait_for(lock, std::chrono::milliseconds(100), [this] {
+                return !_eventQueue.empty() || !_shouldRun;
+            });
+
+            if (!_eventQueue.empty())
+            {
+                event = std::move(_eventQueue.front());
+                _queueMemoryUsage -= event.jsonData.size();
+                _eventQueue.pop();
+                hasEvent = true;
+            }
+        }
+
+        if (hasEvent && _connected)
+        {
+            if (SendMessage(event.jsonData))
+            {
+                _eventsSent++;
+            }
+        }
+    }
+}
+
+bool AliveWorldSocket::SendMessage(const std::string& json)
+{
+    if (_socketFd < 0)
+        return false;
+
+    // Messages are newline-delimited
+    std::string message = json + "\n";
+
+    ssize_t sent = send(_socketFd, message.c_str(), message.length(), MSG_NOSIGNAL);
+    if (sent < 0)
+    {
+        LOG_ERROR("module.alive-world", "AliveWorld Socket: Send failed: {}", strerror(errno));
+        Disconnect();
+        return false;
+    }
+
+    return sent == static_cast<ssize_t>(message.length());
+}
+
+// ============================================================================
+// RECEIVE THREAD
+// ============================================================================
+
+void AliveWorldSocket::ReceiveThread()
+{
+    LOG_INFO("module.alive-world", "AliveWorld Socket: Receive thread started");
+
+    char buffer[4096];
+    std::string incomplete;
+
+    while (_shouldRun)
+    {
+        if (!_connected || _socketFd < 0)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+
+        ssize_t received = recv(_socketFd, buffer, sizeof(buffer) - 1, 0);
+
+        if (received > 0)
+        {
+            buffer[received] = '\0';
+            incomplete += buffer;
+
+            // Prevent buffer overflow DoS - limit incomplete buffer size
+            constexpr size_t MAX_INCOMPLETE_BUFFER = 1024 * 1024;  // 1MB
+            if (incomplete.size() > MAX_INCOMPLETE_BUFFER)
+            {
+                LOG_ERROR("module.alive-world", "AliveWorld Socket: Message too large ({} bytes), disconnecting",
+                    incomplete.size());
+                Disconnect();
+                incomplete.clear();
+                continue;
+            }
+
+            // Process complete messages (newline-delimited)
+            size_t pos;
+            while ((pos = incomplete.find('\n')) != std::string::npos)
+            {
+                std::string message = incomplete.substr(0, pos);
+                incomplete = incomplete.substr(pos + 1);
+
+                if (!message.empty())
+                {
+                    HandleIncomingMessage(message);
+                    {
+                        std::lock_guard<std::mutex> lock(_timeMutex);
+                        _lastDaemonResponse = std::chrono::steady_clock::now();
+                    }
+                    _daemonAvailable = true;
+                }
+            }
+        }
+        else if (received == 0)
+        {
+            // Connection closed
+            LOG_INFO("module.alive-world", "AliveWorld Socket: Daemon disconnected");
+            Disconnect();
+        }
+        else if (errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+            // Error (not timeout)
+            if (errno != EINTR)
+            {
+                LOG_ERROR("module.alive-world", "AliveWorld Socket: Receive error: {}",
+                    strerror(errno));
+                Disconnect();
+            }
+        }
+    }
+}
+
+void AliveWorldSocket::HandleIncomingMessage(const std::string& json)
+{
+    // Parse the command
+    SocketCommand cmd = ParseCommand(json);
+
+    // Handle authentication immediately (not queued)
+    if (cmd.type == SocketCommandType::AUTH)
+    {
+        std::string secret = ExtractJsonString(json, "secret");
+        // Note: AzerothCore uses GetOption<T>() template instead of the old GetStringDefault()
+        std::string expectedSecret = sConfigMgr->GetOption<std::string>("AliveWorld.SharedSecret", "dev-secret-change-me");
+
+        // Use constant-time comparison to prevent timing attacks
+        bool authSuccess = false;
+        if (secret.length() == expectedSecret.length())
+        {
+            if (CRYPTO_memcmp(secret.c_str(), expectedSecret.c_str(), secret.length()) == 0)
+            {
+                authSuccess = true;
+            }
+        }
+
+        if (authSuccess)
+        {
+            _authenticated = true;
+            LOG_INFO("module.alive-world", "AliveWorld Socket: Authentication successful");
+
+            // Send auth_ok response (using eventType to match protocol)
+            std::string response = "{\"eventType\":\"auth_ok\",\"message\":\"Authenticated\",\"timestamp\":";
+            response += std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+            response += "}\n";
+            SendMessage(response);
+        }
+        else
+        {
+            LOG_WARN("module.alive-world", "AliveWorld Socket: Authentication failed - invalid secret");
+
+            // Send auth_error response (using eventType to match protocol)
+            std::string response = "{\"eventType\":\"auth_error\",\"message\":\"Invalid secret\",\"timestamp\":";
+            response += std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count());
+            response += "}\n";
+            SendMessage(response);
+
+            // Disconnect unauthenticated clients
+            Disconnect();
+        }
+
+        _commandsReceived++;
+        return;
+    }
+
+    // Reject non-auth commands if not authenticated
+    if (!_authenticated)
+    {
+        LOG_WARN("module.alive-world", "AliveWorld Socket: Rejecting unauthenticated command");
+        std::string response = "{\"type\":\"auth_error\",\"message\":\"Not authenticated\"}\n";
+        SendMessage(response);
+        _commandsReceived++;
+        return;
+    }
+
+    // Queue the command for processing
+    {
+        std::lock_guard<std::mutex> lock(_commandQueueMutex);
+        _commandQueue.push(cmd);
+    }
+
+    _commandsReceived++;
+}
+
+SocketCommand AliveWorldSocket::ParseCommand(const std::string& json)
+{
+    SocketCommand cmd;
+
+    // Use safe JSON extraction functions with proper error handling
+    // This prevents crashes from malformed JSON input
+
+    // Extract "type" field
+    std::string typeStr = ExtractJsonString(json, "type");
+    if (!typeStr.empty())
+    {
+        // Map string to enum using static lookup table for O(1) lookup
+        static const std::unordered_map<std::string, SocketCommandType> typeMap = {
+            {"say", SocketCommandType::BOT_SAY},
+            {"yell", SocketCommandType::BOT_YELL},
+            {"whisper", SocketCommandType::BOT_WHISPER},
+            {"emote", SocketCommandType::BOT_EMOTE},
+            {"drink", SocketCommandType::BOT_DRINK},
+            {"eat", SocketCommandType::BOT_EAT},
+            {"follow", SocketCommandType::BOT_FOLLOW},
+            {"stay", SocketCommandType::BOT_STAY},
+            {"attack", SocketCommandType::BOT_ATTACK},
+            {"flee", SocketCommandType::BOT_FLEE},
+            {"assist", SocketCommandType::BOT_ASSIST},
+            {"set_role", SocketCommandType::BOT_SET_ROLE},
+            {"set_strategy", SocketCommandType::BOT_SET_STRATEGY},
+            {"request_state", SocketCommandType::REQUEST_STATE},
+            {"set_debug", SocketCommandType::SET_DEBUG},
+            {"auth", SocketCommandType::AUTH},
+        };
+
+        auto it = typeMap.find(typeStr);
+        if (it != typeMap.end())
+            cmd.type = it->second;
+    }
+
+    // Extract "botGuid" field (try both naming conventions)
+    int64_t guid = ExtractJsonInt(json, "botGuid", -1);
+    if (guid < 0)
+        guid = ExtractJsonInt(json, "bot_guid", 0);
+    cmd.botGuid = static_cast<uint32_t>(guid >= 0 ? guid : 0);
+
+    // Extract "message" or "param1" field
+    cmd.param1 = ExtractJsonString(json, "message");
+    if (cmd.param1.empty())
+        cmd.param1 = ExtractJsonString(json, "param1");
+
+    // Extract "target" or "param2" field
+    cmd.param2 = ExtractJsonString(json, "target");
+    if (cmd.param2.empty())
+        cmd.param2 = ExtractJsonString(json, "param2");
+
+    // Extract numeric parameter
+    cmd.numParam = static_cast<int32_t>(ExtractJsonInt(json, "numParam", 0));
+
+    return cmd;
+}
+
+// ============================================================================
+// EVENT EMISSION
+// ============================================================================
+
+void AliveWorldSocket::EmitEvent(const SocketEvent& event)
+{
+    if (!_shouldRun)
+        return;
+
+    const size_t eventSize = event.jsonData.size();
+
+    {
+        std::lock_guard<std::mutex> lock(_eventQueueMutex);
+
+        // Check if adding this event would exceed memory limit
+        if (_queueMemoryUsage + eventSize >= MAX_QUEUE_MEMORY && !_eventQueue.empty())
+        {
+            // Drop oldest event to make room
+            _queueMemoryUsage -= _eventQueue.front().jsonData.size();
+            _eventQueue.pop();
+        }
+
+        _eventQueue.push(event);
+        _queueMemoryUsage += eventSize;
+    }
+
+    _eventQueueCV.notify_one();
+}
+
+void AliveWorldSocket::EmitEvent(SocketEventType type, const std::string& json)
+{
+    EmitEvent(SocketEvent(type, json));
+}
+
+void AliveWorldSocket::EmitSystemEvent(SocketEventType type, const std::string& json)
+{
+    std::ostringstream oss;
+    oss << "{\"eventType\":\"";
+
+    switch (type)
+    {
+        case SocketEventType::SYSTEM_STARTUP:   oss << "system_startup"; break;
+        case SocketEventType::SYSTEM_SHUTDOWN:  oss << "system_shutdown"; break;
+        case SocketEventType::SYSTEM_HEARTBEAT: oss << "heartbeat"; break;
+        default: oss << "system"; break;
+    }
+
+    oss << "\",\"timestamp\":" << std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()
+    ).count();
+
+    if (json != "{}")
+    {
+        oss << ",\"data\":" << json;
+    }
+
+    oss << "}";
+
+    EmitEvent(type, oss.str());
+}
+
+void AliveWorldSocket::EmitPlayerEvent(SocketEventType type, Player* player, const std::string& extraJson)
+{
+    if (!player)
+        return;
+
+    std::string json = "{\"eventType\":\"";
+
+    switch (type)
+    {
+        case SocketEventType::PLAYER_LOGIN:      json += "player_login"; break;
+        case SocketEventType::PLAYER_LOGOUT:     json += "player_logout"; break;
+        case SocketEventType::PLAYER_CHAT:       json += "player_chat"; break;
+        case SocketEventType::PLAYER_EMOTE:      json += "player_emote"; break;
+        case SocketEventType::PLAYER_ZONE_CHANGE: json += "player_zone_change"; break;
+        default: json += "player_event"; break;
+    }
+
+    json += "\",";
+    json += BuildPlayerJson(player);
+
+    if (!extraJson.empty())
+    {
+        json += "," + extraJson;
+    }
+
+    json += "}";
+
+    EmitEvent(type, json);
+}
+
+void AliveWorldSocket::EmitBotEvent(SocketEventType type, uint32_t botGuid, const std::string& extraJson)
+{
+    std::string json = "{\"eventType\":\"";
+
+    switch (type)
+    {
+        case SocketEventType::BOT_TIER_CHANGED:  json += "bot_tier_changed"; break;
+        case SocketEventType::BOT_ZONE_ENTERED:  json += "bot_zone_entered"; break;
+        case SocketEventType::BOT_NEAR_PLAYER:   json += "bot_near_player"; break;
+        case SocketEventType::BOT_LOW_HEALTH:    json += "bot_low_health"; break;
+        case SocketEventType::BOT_LOW_MANA:      json += "bot_low_mana"; break;
+        default: json += "bot_event"; break;
+    }
+
+    json += "\",\"botGuid\":" + std::to_string(botGuid);
+    json += ",";
+    json += BuildBotStateJson(botGuid);
+
+    if (!extraJson.empty())
+    {
+        json += "," + extraJson;
+    }
+
+    json += "}";
+
+    EmitEvent(type, json);
+}
+
+void AliveWorldSocket::EmitCombatEvent(SocketEventType type, uint32_t botGuid, Unit* target, const std::string& extraJson)
+{
+    std::string json = "{\"eventType\":\"";
+
+    switch (type)
+    {
+        case SocketEventType::COMBAT_START:     json += "combat_start"; break;
+        case SocketEventType::COMBAT_END:       json += "combat_end"; break;
+        case SocketEventType::CREATURE_KILLED:  json += "creature_killed"; break;
+        case SocketEventType::PLAYER_KILLED:    json += "player_killed"; break;
+        case SocketEventType::PLAYER_DIED:      json += "player_died"; break;
+        default: json += "combat_event"; break;
+    }
+
+    json += "\",\"botGuid\":" + std::to_string(botGuid);
+    json += "," + BuildCombatJson(botGuid, target);
+
+    if (!extraJson.empty())
+    {
+        json += "," + extraJson;
+    }
+
+    json += "}";
+
+    EmitEvent(type, json);
+}
+
+// ============================================================================
+// COMMAND PROCESSING
+// ============================================================================
+
+void AliveWorldSocket::ProcessPendingCommands()
+{
+    std::queue<SocketCommand> commands;
+
+    {
+        std::lock_guard<std::mutex> lock(_commandQueueMutex);
+        commands.swap(_commandQueue);
+    }
+
+    while (!commands.empty())
+    {
+        SocketCommand cmd = std::move(commands.front());
+        commands.pop();
+
+        if (_commandCallback)
+        {
+            _commandCallback(cmd);
+        }
+    }
+}
+
+uint32_t AliveWorldSocket::GetQueueSize() const
+{
+    std::lock_guard<std::mutex> lock(_eventQueueMutex);
+    return static_cast<uint32_t>(_eventQueue.size());
+}
+
+// ============================================================================
+// JSON BUILDERS
+// ============================================================================
+
+std::string AliveWorldSocket::BuildPlayerJson(Player* player)
+{
+    if (!player)
+        return "\"player\":null";
+
+    std::string json = "\"player\":{";
+    json += "\"guid\":" + std::to_string(player->GetGUID().GetCounter());
+    json += ",\"name\":\"" + EscapeJsonString(player->GetName()) + "\"";
+    json += ",\"level\":" + std::to_string(player->GetLevel());
+    json += ",\"class\":" + std::to_string(player->getClass());
+    json += ",\"race\":" + std::to_string(player->getRace());
+    json += ",\"faction\":" + std::to_string(player->GetFaction());
+    json += ",\"zone\":" + std::to_string(player->GetZoneId());
+    json += ",\"area\":" + std::to_string(player->GetAreaId());
+    json += ",\"x\":" + std::to_string(player->GetPositionX());
+    json += ",\"y\":" + std::to_string(player->GetPositionY());
+    json += ",\"z\":" + std::to_string(player->GetPositionZ());
+    json += "}";
+
+    return json;
+}
+
+std::string AliveWorldSocket::BuildBotStateJson(uint32_t botGuid)
+{
+    // Get bot memory from manager
+    auto memory = sAliveWorldMgr->GetBotMemory(botGuid);
+    auto tier = sAliveWorldMgr->GetBotTier(botGuid);
+
+    std::string json = "\"bot\":{";
+    json += "\"guid\":" + std::to_string(botGuid);
+    json += ",\"tier\":" + std::to_string(static_cast<int>(tier));
+
+    if (memory)
+    {
+        json += ",\"personality\":{";
+        json += "\"aggression\":" + std::to_string(memory->personality.aggression);
+        json += ",\"caution\":" + std::to_string(memory->personality.caution);
+        json += ",\"sociability\":" + std::to_string(memory->personality.sociability);
+        json += ",\"loyalty\":" + std::to_string(memory->personality.loyalty);
+        json += ",\"curiosity\":" + std::to_string(memory->personality.curiosity);
+        json += ",\"vengefulness\":" + std::to_string(memory->personality.vengefulness);
+        json += "}";
+
+        json += ",\"stats\":{";
+        json += "\"totalKills\":" + std::to_string(memory->totalKills);
+        json += ",\"totalDeaths\":" + std::to_string(memory->totalDeaths);
+        json += "}";
+    }
+
+    json += "}";
+
+    return json;
+}
+
+std::string AliveWorldSocket::BuildCombatJson(uint32_t botGuid, Unit* target)
+{
+    std::string json = "\"combat\":{";
+    json += "\"botGuid\":" + std::to_string(botGuid);
+
+    if (target)
+    {
+        json += ",\"target\":{";
+        json += "\"guid\":" + std::to_string(target->GetGUID().GetCounter());
+        json += ",\"name\":\"" + EscapeJsonString(target->GetName()) + "\"";
+        json += ",\"level\":" + std::to_string(target->GetLevel());
+        json += ",\"health\":" + std::to_string(target->GetHealth());
+        json += ",\"maxHealth\":" + std::to_string(target->GetMaxHealth());
+
+        if (Player* playerTarget = target->ToPlayer())
+        {
+            json += ",\"isPlayer\":true";
+            json += ",\"class\":" + std::to_string(playerTarget->getClass());
+        }
+        else if (Creature* creature = target->ToCreature())
+        {
+            json += ",\"isPlayer\":false";
+            json += ",\"entry\":" + std::to_string(creature->GetEntry());
+            json += ",\"isElite\":" + std::string(creature->isElite() ? "true" : "false");
+        }
+
+        json += "}";
+    }
+
+    json += "}";
+
+    return json;
+}
+
+} // namespace AliveWorld

@@ -1,0 +1,979 @@
+#
+# EC Guard System Configuration
+# GTA-style wanted level system for AzerothCore
+#
+
+###############################################################################
+# GENERAL SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Enable
+#        Description: Enable the guard wanted level system
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Enable = 1
+
+#
+#    ECGuardSystem.Debug
+#        Description: Enable debug logging (verbose mode)
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.Debug = 0
+
+#
+#    ECGuardSystem.DebugLogLevel
+#        Description: Log level for debug output
+#        Values:      0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG, 4=TRACE
+#        Default:     2 (INFO)
+#
+ECGuardSystem.DebugLogLevel = 2
+
+#
+#    ECGuardSystem.InGameLogging
+#        Description: Send debug logs to GMs in-game (colored chat messages)
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.InGameLogging = 0
+
+###############################################################################
+# CRIME POINT VALUES
+###############################################################################
+
+#
+#    ECGuardSystem.CivilianAttackPoints
+#        Description: Crime points for attacking a civilian
+#        Default:     50
+#
+ECGuardSystem.CivilianAttackPoints = 50
+
+#
+#    ECGuardSystem.CivilianKillPoints
+#        Description: Crime points for killing a civilian
+#        Default:     100
+#
+ECGuardSystem.CivilianKillPoints = 100
+
+#
+#    ECGuardSystem.GuardAttackPoints
+#        Description: Crime points for attacking a guard
+#        Default:     150
+#
+ECGuardSystem.GuardAttackPoints = 150
+
+#
+#    ECGuardSystem.GuardKillPoints
+#        Description: Crime points for killing a guard
+#        Default:     300
+#
+ECGuardSystem.GuardKillPoints = 300
+
+###############################################################################
+# WANTED LEVEL THRESHOLDS
+###############################################################################
+
+#
+#    ECGuardSystem.PointsFor1Star - ECGuardSystem.PointsFor5Star
+#        Description: Crime points required for each wanted level
+#
+#        1 Star: ~1 civilian kill
+#        2 Stars: ~1 guard attack or 3 civilians
+#        3 Stars: ~1 guard kill or sustained violence
+#        4 Stars: Multiple guard kills
+#        5 Stars: Massacre
+#
+ECGuardSystem.PointsFor1Star = 100
+ECGuardSystem.PointsFor2Star = 300
+ECGuardSystem.PointsFor3Star = 600
+ECGuardSystem.PointsFor4Star = 1000
+ECGuardSystem.PointsFor5Star = 1500
+
+###############################################################################
+# DECAY SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.DecayDelaySeconds
+#        Description: Seconds of peace before wanted level starts decaying
+#        Default:     30
+#
+ECGuardSystem.DecayDelaySeconds = 30
+
+#
+#    ECGuardSystem.DecayRatePerSecond
+#        Description: Crime points removed per second during decay
+#        Default:     10
+#
+ECGuardSystem.DecayRatePerSecond = 10
+
+###############################################################################
+# GUARD SPAWNING
+###############################################################################
+
+#
+#    ECGuardSystem.GuardSpawnCooldownMs
+#        Description: Minimum time between guard spawns (milliseconds)
+#        Default:     10000 (10 seconds)
+#
+ECGuardSystem.GuardSpawnCooldownMs = 10000
+
+#
+#    ECGuardSystem.MaxActiveGuards
+#        Description: Maximum guards pursuing a single player
+#        Default:     6
+#
+ECGuardSystem.MaxActiveGuards = 6
+
+#
+#    ECGuardSystem.GuardSearchRadius
+#        Description: Radius to search for existing idle guards before spawning
+#        Default:     80.0
+#
+ECGuardSystem.GuardSearchRadius = 80.0
+
+#
+#    ECGuardSystem.GuardPatrolDurationSeconds
+#        Description: Out-of-combat lifetime for temporary summoned guards
+#        Default:     60
+#
+ECGuardSystem.GuardPatrolDurationSeconds = 60
+
+#
+#    ECGuardSystem.CivilianProximityEnabled
+#        Description: Explicit civilian templates call local faction guards when
+#                     an opposing player enters their normal aggro radius
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.CivilianProximityEnabled = 1
+
+#
+#    ECGuardSystem.CivilianProximityScanIntervalMs
+#        Description: Per-civilian hostile proximity scan interval
+#        Default:     1000
+#
+ECGuardSystem.CivilianProximityScanIntervalMs = 1000
+
+#
+#    ECGuardSystem.CivilianAlarmRepeatMs
+#        Description: Minimum repeat interval per civilian/player pair
+#        Default:     10000
+#
+ECGuardSystem.CivilianAlarmRepeatMs = 10000
+
+#
+#    ECGuardSystem.CivilianAlarmMinGuards / CivilianAlarmMaxGuards
+#        Description: Temporary local responders requested by each civilian call
+#        Default:     1 / 2
+#
+ECGuardSystem.CivilianAlarmMinGuards = 1
+ECGuardSystem.CivilianAlarmMaxGuards = 2
+
+#
+#    ECGuardSystem.GuardPatrolEnabled
+#        Description: Make temporary guards wander randomly after combat. This
+#                     is custom behavior, not the native settlement patrol path.
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.GuardPatrolEnabled = 0
+
+#
+#    ECGuardSystem.GuardPatrolRadius
+#        Description: Random wander radius when custom patrol is enabled
+#        Default:     30.0
+#
+ECGuardSystem.GuardPatrolRadius = 30.0
+
+#
+#    ECGuardSystem.CustomGuardYellsEnabled
+#        Description: Enable invented Universal-language guard/chase lines.
+#                     Disable for native WotLK settlement behavior.
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.CustomGuardYellsEnabled = 0
+
+###############################################################################
+# LOCALDEFENCE BROADCAST
+###############################################################################
+
+#
+#    ECGuardSystem.BroadcastNPCDeaths
+#        Description: Send the core's native zone-under-attack notification and
+#                     emit the guard-system bridge event for protected NPC deaths
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.BroadcastNPCDeaths = 1
+
+#
+#    ECGuardSystem.CustomLocalDefenceTextEnabled
+#        Description: Add the module's custom English [ALERT] channel message.
+#                     The native zone-under-attack notification is unaffected.
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.CustomLocalDefenceTextEnabled = 0
+
+###############################################################################
+# ZONE THREAT SYSTEM
+###############################################################################
+#
+# The Zone Threat System tracks heat/threat at the zone level, enabling
+# GTA-style phase progression: Quiet -> Uneasy -> Mobilizing -> Impact -> Aftermath
+#
+
+#
+#    ECGuardSystem.Zone.HeatDecayIntervalMs
+#        Description: How often to check for zone heat decay (milliseconds)
+#        Default:     10000 (10 seconds)
+#
+ECGuardSystem.Zone.HeatDecayIntervalMs = 10000
+
+#
+#    ECGuardSystem.Zone.HeatDecayDelayMs
+#        Description: Time of peace before zone heat starts decaying (milliseconds)
+#        Default:     60000 (60 seconds)
+#
+ECGuardSystem.Zone.HeatDecayDelayMs = 60000
+
+#
+#    ECGuardSystem.Zone.HeatDecayRatePerSec
+#        Description: Zone heat points removed per second during decay
+#        Default:     50
+#
+ECGuardSystem.Zone.HeatDecayRatePerSec = 50
+
+#
+#    ECGuardSystem.Zone.UneasyThreshold
+#        Description: Zone heat points to trigger UNEASY phase (NPCs nervous)
+#        Default:     300
+#
+ECGuardSystem.Zone.UneasyThreshold = 300
+
+#
+#    ECGuardSystem.Zone.MobilizingThreshold
+#        Description: Zone heat points to trigger MOBILIZING phase (reinforcements)
+#        Default:     750
+#
+ECGuardSystem.Zone.MobilizingThreshold = 750
+
+#
+#    ECGuardSystem.Zone.ImpactThreshold
+#        Description: Zone heat points to trigger IMPACT phase (full combat)
+#        Default:     1500
+#
+ECGuardSystem.Zone.ImpactThreshold = 1500
+
+#
+#    ECGuardSystem.Zone.MaxHeatPoints
+#        Description: Saturation cap for transient zone heat. Prevents stale
+#                     incidents from accumulating hours of recovery debt.
+#        Default:     5000
+#
+ECGuardSystem.Zone.MaxHeatPoints = 5000
+
+#
+#    ECGuardSystem.Zone.PhaseBroadcastsEnabled
+#        Description: Enable custom English system/raid-warning messages, NPC
+#                     barks, nervous whispers/emotes, and warning sounds when the
+#                     custom zone phase changes. Mechanics, logs, persistence,
+#                     militia, objects, and bridge events still run.
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.Zone.PhaseBroadcastsEnabled = 0
+
+#
+#    ECGuardSystem.Zone.ContestedThreshold
+#        Description: Guard survival rate below which zone becomes CONTESTED (0.0-1.0)
+#        Default:     0.5 (50% guards dead)
+#
+ECGuardSystem.Zone.ContestedThreshold = 0.5
+
+#
+#    ECGuardSystem.Zone.FallenThreshold
+#        Description: Guard survival rate below which zone is FALLEN (0.0-1.0)
+#        Default:     0.1 (90% guards dead)
+#
+ECGuardSystem.Zone.FallenThreshold = 0.1
+
+###############################################################################
+# BOUNTY HUNTERS
+###############################################################################
+#
+# Bounty hunters are elite NPCs that spawn to track high-wanted criminals
+# across zone boundaries, setting ambushes at predicted locations.
+#
+
+#
+#    ECGuardSystem.Zone.BountyHuntersEnabled
+#        Description: Legacy zone-state bounty hunter path. Keep disabled;
+#                     ECGuard.BountyHunterEnabled is the authoritative engine.
+#        Default:     0 (Disabled)
+#
+ECGuardSystem.Zone.BountyHuntersEnabled = 0
+
+#
+#    ECGuardSystem.Zone.BountyHunterSpawnStars
+#        Description: Minimum wanted star level to spawn bounty hunters
+#        Default:     3
+#
+ECGuardSystem.Zone.BountyHunterSpawnStars = 3
+
+#
+#    ECGuardSystem.Zone.MaxBountyHuntersPerPlayer
+#        Description: Maximum bounty hunters tracking a single criminal
+#        Default:     2
+#
+ECGuardSystem.Zone.MaxBountyHuntersPerPlayer = 2
+
+#
+#    ECGuardSystem.Zone.BountyHunterDespawnMs
+#        Description: Bounty hunter lifetime in milliseconds
+#        Default:     600000 (10 minutes)
+#
+ECGuardSystem.Zone.BountyHunterDespawnMs = 600000
+
+###############################################################################
+# ELITE RESPONSE
+###############################################################################
+#
+# Elite Response triggers when a zone falls to attackers. Elite forces
+# (e.g., Thrall's Guard, Stormwind Knights) arrive after a delay to
+# reclaim the zone. This bridges to the World Events module.
+#
+
+#
+#    ECGuardSystem.Zone.EliteResponseEnabled
+#        Description: Enable elite force response when zones fall
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Zone.EliteResponseEnabled = 1
+
+#
+#    ECGuardSystem.Zone.EliteResponseMinDelayMs
+#        Description: Minimum delay before elite forces arrive (total massacre)
+#        Default:     180000 (3 minutes)
+#
+ECGuardSystem.Zone.EliteResponseMinDelayMs = 180000
+
+#
+#    ECGuardSystem.Zone.EliteResponseMaxDelayMs
+#        Description: Maximum delay before elite forces arrive (slow takeover)
+#        Default:     900000 (15 minutes)
+#
+ECGuardSystem.Zone.EliteResponseMaxDelayMs = 900000
+
+#
+#    DYNAMIC RESPONSE DELAY FORMULA:
+#
+#    The actual response delay is calculated based on massacre severity:
+#
+#    1. Base delay starts at MAX
+#    2. Guards killed ratio reduces delay (up to 30%)
+#    3. Mass casualties trigger fast response (50% reduction)
+#    4. Group attacks (3+ criminals) reduce delay (15-30%)
+#    5. Civilian deaths add urgency (20% reduction)
+#
+#    Example scenarios:
+#    - Solo player slowly kills guards: ~15 min response
+#    - 5-man group wipes town in minutes: ~3-4 min response
+#    - Moderate attack with civilian deaths: ~8-10 min response
+#
+
+#
+#    ECGuardSystem.Zone.GuardsKilledForFastResponse
+#        Description: Number of guards killed recently to trigger fast response
+#        Default:     20
+#
+ECGuardSystem.Zone.GuardsKilledForFastResponse = 20
+
+#
+#    ECGuardSystem.Zone.MassacreSeverityMultiplier
+#        Description: Delay multiplier for massacres (0.0-1.0, lower = faster)
+#        Default:     0.5 (50% of normal delay)
+#
+ECGuardSystem.Zone.MassacreSeverityMultiplier = 0.5
+
+###############################################################################
+# ENVIRONMENTAL EFFECTS
+###############################################################################
+#
+# Environmental effects enhance immersion during zone incidents:
+# - Weather changes (fog, rain, ominous skies)
+# - Civilian behaviors (fleeing, cowering, panic)
+# - Debris spawning (overturned carts, scattered goods)
+#
+
+#
+#    ECGuardSystem.Environment.WeatherEnabled
+#        Description: Enable weather effects during zone phases
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.WeatherEnabled = 1
+
+#
+#    ECGuardSystem.Environment.IntensifyWeather
+#        Description: Weather intensity increases with zone phase severity
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.IntensifyWeather = 1
+
+#
+#    ECGuardSystem.Environment.UneasyWeatherEnabled
+#        Description: Enable light weather effects at UNEASY phase
+#        Default:     0 (Disabled - only MOBILIZING+ by default)
+#
+ECGuardSystem.Environment.UneasyWeatherEnabled = 0
+
+#
+#    ECGuardSystem.Environment.MobilizingWeatherEnabled
+#        Description: Enable weather effects at MOBILIZING phase (fog)
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.MobilizingWeatherEnabled = 1
+
+#
+#    ECGuardSystem.Environment.ImpactWeatherEnabled
+#        Description: Enable heavy weather at IMPACT phase (rain, thunder)
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.ImpactWeatherEnabled = 1
+
+#
+#    ECGuardSystem.Environment.CivilianFleeEnabled
+#        Description: Make civilians flee from danger zones
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.CivilianFleeEnabled = 1
+
+#
+#    ECGuardSystem.Environment.CivilianFleeRadius
+#        Description: Distance from crime that triggers civilian flee
+#        Default:     30.0
+#
+ECGuardSystem.Environment.CivilianFleeRadius = 30.0
+
+#
+#    ECGuardSystem.Environment.CivilianFleeDelayMs
+#        Description: Delay before civilians start fleeing (reaction time)
+#        Default:     2000 (2 seconds)
+#
+ECGuardSystem.Environment.CivilianFleeDelayMs = 2000
+
+#
+#    ECGuardSystem.Environment.CivilianReturnDelayMs
+#        Description: Time before fled civilians return to posts
+#        Default:     60000 (60 seconds)
+#
+ECGuardSystem.Environment.CivilianReturnDelayMs = 60000
+
+#
+#    ECGuardSystem.Environment.FleeSpeedMultiplier
+#        Description: Speed boost for fleeing civilians
+#        Default:     1.3 (30% faster)
+#
+ECGuardSystem.Environment.FleeSpeedMultiplier = 1.3
+
+#
+#    ECGuardSystem.Environment.DebrisEnabled
+#        Description: Spawn debris game objects during combat (overturned carts, etc.)
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.DebrisEnabled = 1
+
+#
+#    ECGuardSystem.Environment.MaxDebrisPerZone
+#        Description: Maximum debris objects per zone
+#        Default:     20
+#
+ECGuardSystem.Environment.MaxDebrisPerZone = 20
+
+#
+#    ECGuardSystem.Environment.DebrisDespawnTimeMs
+#        Description: Time before debris despawns
+#        Default:     300000 (5 minutes)
+#
+ECGuardSystem.Environment.DebrisDespawnTimeMs = 300000
+
+#
+#    ECGuardSystem.Environment.DebrisOnlyInImpact
+#        Description: Only spawn debris during IMPACT phase
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Environment.DebrisOnlyInImpact = 1
+
+###############################################################################
+# FACTION RESPONSE GROUPS
+###############################################################################
+#
+# Faction response groups are loaded from the database table
+# `ec_guard_faction_response`. This section provides fallback defaults.
+#
+# To customize faction responses (Kor'kron Elite, Stormwind Royal Guard, etc.),
+# edit the database table directly. Each entry defines:
+# - Which faction's zones it applies to
+# - Creature entries to spawn
+# - Spawn counts and delays
+# - Announcement text
+# - Zone whitelists/blacklists
+# - Minimum threat level to trigger
+#
+
+#
+#    ECGuardSystem.FactionResponse.LoadFromDatabase
+#        Description: Load faction response groups from database
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.FactionResponse.LoadFromDatabase = 1
+
+#
+#    ECGuardSystem.FactionResponse.UseDefaults
+#        Description: Use built-in defaults when database has no entries
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.FactionResponse.UseDefaults = 1
+
+###############################################################################
+# PREPARATION PHASE SYSTEM ("Shatter Before the Storm")
+###############################################################################
+#
+# The Preparation Phase system creates atmosphere and immersion before and
+# during zone incidents. Features include:
+# - NPC dialogues (guards chatting, merchants gossiping)
+# - Dialogue pairs (two NPCs having a conversation)
+# - Town crier announcements (escalating warnings)
+# - Militia spawning (NPCs carrying crates, running errands)
+# - Barricade/gameobject spawning
+# - Faction banner changes based on zone control
+#
+
+#
+#    ECGuardSystem.Preparation.Enabled
+#        Description: Master switch for the preparation phase system
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Preparation.Enabled = 1
+
+#
+#    ECGuardSystem.Preparation.DialoguesEnabled
+#        Description: Enable custom Universal-language NPC dialogues
+#        Default:     0 (Disabled; native-safe)
+#
+ECGuardSystem.Preparation.DialoguesEnabled = 0
+
+#
+#    ECGuardSystem.Preparation.MilitiaEnabled
+#        Description: Enable militia NPC spawning during MOBILIZING phase
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Preparation.MilitiaEnabled = 1
+
+#
+#    ECGuardSystem.Preparation.CrierEnabled
+#        Description: Enable custom Universal-language town crier announcements
+#        Default:     0 (Disabled; native-safe)
+#
+ECGuardSystem.Preparation.CrierEnabled = 0
+
+#
+#    ECGuardSystem.Preparation.GameObjectsEnabled
+#        Description: Enable gameobject spawning (barricades, debris)
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Preparation.GameObjectsEnabled = 1
+
+#
+#    ECGuardSystem.Preparation.BannersEnabled
+#        Description: Enable faction banner changes based on zone control
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Preparation.BannersEnabled = 1
+
+###############################################################################
+# PREPARATION TIMING SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Preparation.DialogueCheckIntervalMs
+#        Description: How often to check for dialogue triggers (milliseconds)
+#        Default:     5000 (5 seconds)
+#
+ECGuardSystem.Preparation.DialogueCheckIntervalMs = 5000
+
+#
+#    ECGuardSystem.Preparation.MilitiaUpdateIntervalMs
+#        Description: How often to update militia NPC behaviors (milliseconds)
+#        Default:     2000 (2 seconds)
+#
+ECGuardSystem.Preparation.MilitiaUpdateIntervalMs = 2000
+
+#
+#    ECGuardSystem.Preparation.GameObjectCheckIntervalMs
+#        Description: How often to check for GO spawns/despawns (milliseconds)
+#        Default:     10000 (10 seconds)
+#
+ECGuardSystem.Preparation.GameObjectCheckIntervalMs = 10000
+
+###############################################################################
+# DIALOGUE SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Preparation.DialogueTriggerRadius
+#        Description: Distance from players to trigger NPC dialogues
+#        Default:     40.0
+#
+ECGuardSystem.Preparation.DialogueTriggerRadius = 40.0
+
+#
+#    ECGuardSystem.Preparation.MinDialogueCooldownMs
+#        Description: Minimum time between any dialogues in a zone
+#        Default:     30000 (30 seconds)
+#
+ECGuardSystem.Preparation.MinDialogueCooldownMs = 30000
+
+#
+#    ECGuardSystem.Preparation.DialoguePairDelayMs
+#        Description: Delay between lines in a dialogue pair conversation
+#        Default:     3000 (3 seconds)
+#
+ECGuardSystem.Preparation.DialoguePairDelayMs = 3000
+
+#
+#    ECGuardSystem.Preparation.DialogueResponseChance
+#        Description: Chance for a nearby NPC to respond to dialogue (0.0-1.0)
+#        Default:     0.4 (40%)
+#
+ECGuardSystem.Preparation.DialogueResponseChance = 0.4
+
+###############################################################################
+# MILITIA SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Preparation.MaxMilitiaPerZone
+#        Description: Maximum militia NPCs spawned per zone
+#        Default:     10
+#
+ECGuardSystem.Preparation.MaxMilitiaPerZone = 10
+
+#
+#    ECGuardSystem.Preparation.MilitiaWalkSpeed
+#        Description: Walk speed multiplier for militia carrying crates
+#        Default:     1.0
+#
+ECGuardSystem.Preparation.MilitiaWalkSpeed = 1.0
+
+#
+#    ECGuardSystem.Preparation.MilitiaRunSpeed
+#        Description: Run speed multiplier for militia running errands
+#        Default:     1.5
+#
+ECGuardSystem.Preparation.MilitiaRunSpeed = 1.5
+
+###############################################################################
+# TOWN CRIER SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Preparation.CrierBaseIntervalMs
+#        Description: Time between announcements during CALM/ALERT phases
+#        Default:     45000 (45 seconds)
+#
+ECGuardSystem.Preparation.CrierBaseIntervalMs = 45000
+
+#
+#    ECGuardSystem.Preparation.CrierUrgentIntervalMs
+#        Description: Time between announcements during URGENT phase
+#        Default:     20000 (20 seconds)
+#
+ECGuardSystem.Preparation.CrierUrgentIntervalMs = 20000
+
+#
+#    ECGuardSystem.Preparation.CrierPanicIntervalMs
+#        Description: Time between announcements during PANIC phase
+#        Default:     10000 (10 seconds)
+#
+ECGuardSystem.Preparation.CrierPanicIntervalMs = 10000
+
+###############################################################################
+# GAMEOBJECT SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Preparation.MaxBarricadesPerZone
+#        Description: Maximum barricade gameobjects per zone
+#        Default:     15
+#
+ECGuardSystem.Preparation.MaxBarricadesPerZone = 15
+
+#
+#    ECGuardSystem.Preparation.MaxDebrisPerZone
+#        Description: Maximum debris gameobjects per zone
+#        Default:     20
+#
+ECGuardSystem.Preparation.MaxDebrisPerZone = 20
+
+#
+#    ECGuardSystem.Preparation.BarricadeRespawnMs
+#        Description: Time before destroyed barricades respawn
+#        Default:     300000 (5 minutes)
+#
+ECGuardSystem.Preparation.BarricadeRespawnMs = 300000
+
+###############################################################################
+# FACTION BANNER SETTINGS
+###############################################################################
+
+#
+#    ECGuardSystem.Preparation.InstantBannerSwap
+#        Description: Instantly swap banners or use animated transition
+#        Default:     0 (Animated transition)
+#
+ECGuardSystem.Preparation.InstantBannerSwap = 0
+
+#
+#    ECGuardSystem.Preparation.BannerSwapDelayMs
+#        Description: Delay for animated banner swap effect
+#        Default:     5000 (5 seconds)
+#
+ECGuardSystem.Preparation.BannerSwapDelayMs = 5000
+
+###############################################################################
+# BOUNTY HUNTER SYSTEM (Extended)
+###############################################################################
+#
+# The Bounty Hunter system posts bounties on high-wanted criminals and allows
+# players to claim rewards by killing them. Bounty Hunter NPCs are spawned
+# to track and kill targets who escape normal guards.
+#
+
+#
+#    ECGuard.BountyHunterEnabled
+#        Description: Master switch for the bounty hunter system
+#        Default:     1 (Enabled)
+#
+ECGuard.BountyHunterEnabled = 1
+
+#
+#    ECGuard.BountyMinWantedLevel
+#        Description: Minimum wanted stars to post a bounty (1-5)
+#        Default:     3
+#
+ECGuard.BountyMinWantedLevel = 3
+
+#
+#    ECGuard.HunterMinWantedLevel
+#        Description: Minimum wanted stars to spawn bounty hunter NPCs (1-5)
+#        Default:     4
+#
+ECGuard.HunterMinWantedLevel = 4
+
+#
+#    ECGuard.HunterSpawnDelayMs
+#        Description: Delay before first bounty hunter spawns (milliseconds)
+#        Default:     300000 (5 minutes)
+#
+ECGuard.HunterSpawnDelayMs = 300000
+
+#
+#    ECGuard.HunterRespawnDelayMs
+#        Description: Delay between subsequent hunter spawns (milliseconds)
+#        Default:     180000 (3 minutes)
+#
+ECGuard.HunterRespawnDelayMs = 180000
+
+#
+#    ECGuard.BountyDurationMs
+#        Description: How long a bounty stays active (milliseconds)
+#        Default:     3600000 (1 hour)
+#
+ECGuard.BountyDurationMs = 3600000
+
+#
+#    ECGuard.HunterDespawnTimeMs
+#        Description: How long a hunter chases before giving up (milliseconds)
+#        Default:     600000 (10 minutes)
+#
+ECGuard.HunterDespawnTimeMs = 600000
+
+#
+#    ECGuard.MaxHuntersPerTarget
+#        Description: Maximum bounty hunters tracking one player
+#        Default:     2
+#
+ECGuard.MaxHuntersPerTarget = 2
+
+#
+#    ECGuard.HunterCrossZoneTracking
+#        Description: Legacy cross-map hunter re-dispatch. Jurisdiction checks
+#                     always prevent a hunter from following into another zone.
+#        Default:     0 (Disabled)
+#
+ECGuard.HunterCrossZoneTracking = 0
+
+###############################################################################
+# BOUNTY REWARDS (in copper)
+###############################################################################
+#
+# Bounty rewards scale with wanted level. 1 gold = 10000 copper.
+#
+
+#
+#    ECGuard.BountyReward1Star
+#        Description: Bounty reward for 1-star wanted (copper)
+#        Default:     500000 (50 gold)
+#
+ECGuard.BountyReward1Star = 500000
+
+#
+#    ECGuard.BountyReward2Star
+#        Description: Bounty reward for 2-star wanted (copper)
+#        Default:     1500000 (150 gold)
+#
+ECGuard.BountyReward2Star = 1500000
+
+#
+#    ECGuard.BountyReward3Star
+#        Description: Bounty reward for 3-star wanted (copper)
+#        Default:     5000000 (500 gold)
+#
+ECGuard.BountyReward3Star = 5000000
+
+#
+#    ECGuard.BountyReward4Star
+#        Description: Bounty reward for 4-star wanted (copper)
+#        Default:     15000000 (1500 gold)
+#
+ECGuard.BountyReward4Star = 15000000
+
+#
+#    ECGuard.BountyReward5Star
+#        Description: Bounty reward for 5-star wanted (copper)
+#        Default:     50000000 (5000 gold)
+#
+ECGuard.BountyReward5Star = 50000000
+
+###############################################################################
+# BOUNTY HUNTER NPC ENTRIES
+###############################################################################
+#
+# Creature template entries for bounty hunter NPCs.
+# These should be elite-level NPCs appropriate for hunting criminals.
+#
+
+#
+#    ECGuard.BountyHunterEntries
+#        Description: Comma-separated creature entries for regular bounty hunters
+#        Example:     "4590,4591,4592"
+#        Default:     "" (Empty - will use fallback)
+#
+ECGuard.BountyHunterEntries = ""
+
+#
+#    ECGuard.EliteBountyHunterEntry
+#        Description: Creature entry for elite hunter (spawns at 5 stars)
+#        Default:     0 (Uses regular hunters)
+#
+ECGuard.EliteBountyHunterEntry = 0
+
+#
+#    ECGuard.HunterStatMultiplierPerStar
+#        Description: Additional bounty-hunter stat multiplier applied per wanted star
+#        Default:     0.25
+#
+ECGuard.HunterStatMultiplierPerStar = 0.25
+
+#
+#    ECGuard.HunterLocalDefenceAnnounce
+#        Description: Announce bounty-hunter deployment through the local defence channel
+#        Default:     1 (Enabled)
+#
+ECGuard.HunterLocalDefenceAnnounce = 1
+
+###############################################################################
+# WITNESS SYSTEM
+###############################################################################
+#
+# The Witness System adds a GTA-inspired mechanic where crimes only register
+# if a friendly NPC witnesses them. When a witness sees a crime, they yell
+# and flee toward the nearest guard. The criminal has a window to silence the
+# witness before they report the crime.
+#
+# Guard attacks/kills always register immediately (the guard is its own witness).
+# Only civilian crimes require a witness.
+#
+
+#
+#    ECGuardSystem.Witness.Enabled
+#        Description: Enable the witness system for civilian crimes
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Witness.Enabled = 1
+
+#
+#    ECGuardSystem.Witness.Range
+#        Description: Radius (yards) to search for NPC witnesses around a crime
+#        Default:     40.0
+#
+ECGuardSystem.Witness.Range = 40.0
+
+#
+#    ECGuardSystem.Witness.AlertDurationMs
+#        Description: Time (ms) before a witness confirms the crime
+#                     Kill the witness within this window to suppress the report.
+#        Default:     5000 (5 seconds)
+#
+ECGuardSystem.Witness.AlertDurationMs = 5000
+
+#
+#    ECGuardSystem.Witness.RequireLineOfSight
+#        Description: Witness must have line of sight to the crime
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Witness.RequireLineOfSight = 1
+
+###############################################################################
+# PEON CONSTRUCTION SYSTEM
+###############################################################################
+#
+# WC3-style zone fortification system. Peon workers spawn during UNEASY/
+# MOBILIZING phases to gather lumber and construct defensive structures
+# (bunkers, watchtowers, barricades). Structures persist and decay gradually
+# during AFTERMATH/QUIET phases.
+#
+# These settings live under the Preparation namespace since construction is
+# part of the zone preparation lifecycle (ECZonePreparation.cpp).
+#
+
+#
+#    ECGuardSystem.Preparation.ConstructionEnabled
+#        Description: Enable the peon construction system
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Preparation.ConstructionEnabled = 1
+
+#
+#    ECGuardSystem.Preparation.ConstructionUpdateIntervalMs
+#        Description: How often to tick construction progress (milliseconds)
+#        Default:     1500
+#
+ECGuardSystem.Preparation.ConstructionUpdateIntervalMs = 1500
+
+#
+#    ECGuardSystem.Preparation.WorkDurationMs
+#        Description: Duration of one worker construction action (milliseconds)
+#        Default:     4000
+#
+ECGuardSystem.Preparation.WorkDurationMs = 4000
+
+#
+#    ECGuardSystem.Preparation.MaxWorkersPerZone
+#        Description: Maximum peon workers spawned per zone
+#        Default:     8
+#
+ECGuardSystem.Preparation.MaxWorkersPerZone = 8
+
+#
+#    ECGuardSystem.Preparation.InteractiveObjectsEnabled
+#        Description: Enable interactive gameobject spawning (capture points, traps, guardposts)
+#        Default:     1 (Enabled)
+#
+ECGuardSystem.Preparation.InteractiveObjectsEnabled = 1
