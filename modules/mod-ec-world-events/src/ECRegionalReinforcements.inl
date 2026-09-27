@@ -29,8 +29,10 @@ void WorldEventManager::DispatchRegionalReinforcements(ActiveEvent& event)
             continue;
 
         QueryResult operational = WorldDatabase.Query(Acore::StringFormat(
-            "SELECT COUNT(*) FROM ec_world_settlement_nodes WHERE settlement_id = {} "
-            "AND node_type = 'supplies' AND state = 0 AND health_pct > 0", source->first));
+            "SELECT COUNT(*) FROM ec_world_settlement_nodes n "
+            "JOIN ec_world_settlement_node_effects e ON e.node_id = n.id "
+            "WHERE n.settlement_id = {} AND e.effect_type = 'regional_reinforcement' "
+            "AND n.state = 0 AND n.health_pct > 0", source->first));
         if (!operational || operational->Fetch()[0].Get<uint32>() == 0)
         {
             EC_LOG_INFO("Regional military support from '%s' unavailable: supply node offline",

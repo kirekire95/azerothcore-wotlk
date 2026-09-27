@@ -1145,6 +1145,21 @@ void WorldEventManager::LoadSettlements()
         } while (tierResult->NextRow());
     }
 
+    QueryResult effectResult = WorldDatabase.Query(
+        "SELECT n.settlement_id, e.effect_type, SUM(CASE WHEN n.state = 0 THEN e.effect_value ELSE 0 END) "
+        "FROM ec_world_settlement_nodes n JOIN ec_world_settlement_node_effects e ON e.node_id = n.id "
+        "GROUP BY n.settlement_id, e.effect_type");
+    if (effectResult)
+    {
+        do
+        {
+            Field* fields = effectResult->Fetch();
+            auto settlement = m_settlements.find(fields[0].Get<uint32>());
+            if (settlement != m_settlements.end())
+                settlement->second.strategicEffects[fields[1].Get<std::string>()] = fields[2].Get<int32>();
+        } while (effectResult->NextRow());
+    }
+
     m_settlementLinks.clear();
     QueryResult linkResult = WorldDatabase.Query(
         "SELECT source_settlement_id, target_settlement_id, link_type, transfer_pct "
