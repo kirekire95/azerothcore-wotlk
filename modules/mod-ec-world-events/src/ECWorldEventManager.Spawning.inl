@@ -1529,6 +1529,8 @@ void WorldEventManager::DespawnEventBots(ActiveEvent& event)
     event.raidObjectiveElapsedMs = 0;
     event.raidAssaultResidentSources.clear();
     event.raidAssaultBuildingSources.clear();
+    event.raidAssaultResourceSources.clear();
+    event.raidResourceNodesDestroyed.clear();
     event.raidAssaultHeld.clear();
     EC_LOG_INFO("DespawnEventBots for instance %u (%zu teleported bots, %zu pending teleports)",
         event.instanceId, event.spawnedBots.size(), event.pendingBotTeleports.size());

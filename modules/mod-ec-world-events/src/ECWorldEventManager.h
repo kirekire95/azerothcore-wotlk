@@ -404,6 +404,7 @@ namespace EC
         uint64 raidObjectiveElapsedMs = 0;
         std::map<RaidAssault::Id, ObjectGuid> raidAssaultResidentSources;
         std::map<RaidAssault::Id, uint32> raidAssaultBuildingSources;
+        std::map<RaidAssault::Id, uint32> raidAssaultResourceSources;
         std::set<ObjectGuid> raidAssaultHeld;
 
         // Runtime combat telemetry for spawned event NPCs
@@ -425,6 +426,7 @@ namespace EC
         bool raidSacking = false;
         uint32 raidSackingElapsedMs = 0;
         std::set<uint32> raidSackTargetsStarted;
+        std::set<uint32> raidResourceNodesDestroyed;
     };
 
     struct SettlementState

@@ -9,6 +9,7 @@
 namespace
 {
     constexpr uint64 kRaidBuildingSourceBit = uint64(1) << 63;
+    constexpr uint64 kRaidResourceSourceBit = uint64(1) << 62;
     constexpr float kRaidObjectiveDefenseRadius = 24.0f;
 
     EC::RaidAssault::Point RaidPoint(WorldObject const* unit)
@@ -106,6 +107,22 @@ void WorldEventManager::ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 di
             candidates.push_back({spawnId, p, tier(p), EC::RaidAssault::Source::ResidentSpawn});
             event.raidAssaultResidentSources.emplace(spawnId, stored);
         }
+        QueryResult resourceNodes = WorldDatabase.Query(Acore::StringFormat(
+            "SELECT id, position_x, position_y, position_z FROM ec_world_settlement_nodes "
+            "WHERE settlement_id = {} AND state = 0", event.settlementId));
+        if (resourceNodes)
+        {
+            do
+            {
+                Field* fields = resourceNodes->Fetch();
+                uint32 nodeId = fields[0].Get<uint32>();
+                uint64 source = kRaidResourceSourceBit | nodeId;
+                EC::RaidAssault::Point p{fields[1].Get<float>(), fields[2].Get<float>(), fields[3].Get<float>()};
+                candidates.push_back({source, p, tier(p), EC::RaidAssault::Source::AssignedBuilding});
+                event.raidAssaultResourceSources.emplace(source, nodeId);
+            } while (resourceNodes->NextRow());
+        }
+
         for (auto const& obj : def->objects)
         {
             if (!obj.isCapturable)
@@ -182,6 +199,12 @@ void WorldEventManager::ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 di
             }
             else
             {
+                auto resourceSource = event.raidAssaultResourceSources.find(source);
+                if (resourceSource != event.raidAssaultResourceSources.end())
+                {
+                    state.known = true;
+                    continue;
+                }
                 auto buildingSource = event.raidAssaultBuildingSources.find(source);
                 if (buildingSource == event.raidAssaultBuildingSources.end())
                 {
@@ -222,6 +245,16 @@ void WorldEventManager::ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 di
         {
             LOG_INFO("module.ec-events", "Raid {} secured objective {} after physical clearance and occupation",
                 event.instanceId, command.objective);
+            auto resource = event.raidAssaultResourceSources.find(command.objective);
+            if (resource != event.raidAssaultResourceSources.end() &&
+                event.raidResourceNodesDestroyed.insert(resource->second).second)
+            {
+                WorldDatabase.Execute(
+                    "UPDATE ec_world_settlement_nodes SET state = 2, health_pct = 0, rebuild_progress = 0 WHERE id = {}",
+                    resource->second);
+                LOG_INFO("module.ec-events", "Raid {} destroyed strategic resource node {} during active assault",
+                    event.instanceId, resource->second);
+            }
             continue;
         }
         auto found = bots.find(command.actor);
