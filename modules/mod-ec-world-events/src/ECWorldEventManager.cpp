@@ -1206,6 +1206,38 @@ void WorldEventManager::ProcessSettlementEconomy(uint32 diff)
         uint64 generated = localProduction[settlementId] + regionalSupport[settlementId];
         settlement.treasury += generated;
 
+        QueryResult damagedNodes = WorldDatabase.Query(Acore::StringFormat(
+            "SELECT id, rebuild_progress, rebuild_cost FROM ec_world_settlement_nodes "
+            "WHERE settlement_id = {} AND state IN (2, 3) ORDER BY id", settlementId));
+        if (damagedNodes && settlement.treasury > 0)
+        {
+            do
+            {
+                Field* fields = damagedNodes->Fetch();
+                uint32 nodeId = fields[0].Get<uint32>();
+                uint32 progress = fields[1].Get<uint32>();
+                uint32 cost = std::max<uint32>(1, fields[2].Get<uint32>());
+                uint32 spend = static_cast<uint32>(std::min<uint64>(settlement.treasury, cost - std::min(cost, progress)));
+                if (!spend)
+                    continue;
+                progress += spend;
+                settlement.treasury -= spend;
+                if (progress >= cost)
+                {
+                    WorldDatabase.Execute(
+                        "UPDATE ec_world_settlement_nodes SET state = 0, health_pct = 100, rebuild_progress = 0 WHERE id = {}",
+                        nodeId);
+                    EC_LOG_INFO("Settlement '%s' rebuilt strategic node %u", settlement.name.c_str(), nodeId);
+                }
+                else
+                {
+                    WorldDatabase.Execute(
+                        "UPDATE ec_world_settlement_nodes SET state = 3, health_pct = 0, rebuild_progress = {} WHERE id = {}",
+                        progress, nodeId);
+                }
+            } while (damagedNodes->NextRow() && settlement.treasury > 0);
+        }
+
         if (settlement.damagePct > 0 && settlement.treasury >= 10)
         {
             uint32 repairPoints = std::min<uint32>(settlement.damagePct, settlement.treasury / 10);

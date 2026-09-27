@@ -113,6 +113,45 @@ void WorldEventManager::ProcessRaidSacking(ActiveEvent& event, uint32 diff)
         SettlementState& settlement = settlementIt->second;
         uint32 physicalDamage = std::min<uint32>(80, destroyed * 80 / capturable);
         settlement.damagePct = std::max<uint8>(settlement.damagePct, static_cast<uint8>(physicalDamage));
+
+        QueryResult nodeResult = WorldDatabase.Query(Acore::StringFormat(
+            "SELECT id, position_x, position_y, radius FROM ec_world_settlement_nodes "
+            "WHERE settlement_id = {} AND state <> 2", settlement.id));
+        if (nodeResult)
+        {
+            do
+            {
+                Field* fields = nodeResult->Fetch();
+                uint32 nodeId = fields[0].Get<uint32>();
+                float nodeX = fields[1].Get<float>();
+                float nodeY = fields[2].Get<float>();
+                float nodeRadius = fields[3].Get<float>();
+                bool physicallyReached = false;
+                for (ObjectGuid const& guid : event.spawnedBots)
+                {
+                    Player* attacker = ObjectAccessor::FindPlayer(guid);
+                    auto checkpoint = m_botReturnContexts.find(guid);
+                    if (!attacker || checkpoint == m_botReturnContexts.end() ||
+                        !RaidOwnsBot(event, checkpoint->second, attacker, *def) || !attacker->IsAlive())
+                        continue;
+                    float dx = attacker->GetPositionX() - nodeX;
+                    float dy = attacker->GetPositionY() - nodeY;
+                    if (dx * dx + dy * dy <= nodeRadius * nodeRadius)
+                    {
+                        physicallyReached = true;
+                        break;
+                    }
+                }
+                if (physicallyReached)
+                {
+                    WorldDatabase.Execute(
+                        "UPDATE ec_world_settlement_nodes SET state = 2, health_pct = 0, rebuild_progress = 0 WHERE id = {}",
+                        nodeId);
+                    LOG_INFO("module.ec-events", "Raid {} physically destroyed settlement resource node {}",
+                        event.instanceId, nodeId);
+                }
+            } while (nodeResult->NextRow());
+        }
         WorldDatabase.Execute(
             "UPDATE ec_world_settlements SET damage_pct = {}, last_economy_update = CURRENT_TIMESTAMP WHERE id = {}",
             settlement.damagePct, settlement.id);
