@@ -1278,8 +1278,9 @@ void WorldEventManager::ProcessRaidTownCasualty(
     if (def.type != EventType::RAID || event.phase != EventPhase::ACTIVE || event.townPopulationStart == 0)
         return;
 
-    ObjectGuid guid = creature->GetGUID();
-    if (!event.townPopulation.count(guid) || !event.townCasualtiesRecorded.insert(guid).second)
+    auto resident = std::find_if(event.townPopulation.begin(), event.townPopulation.end(),
+        [creature](ObjectGuid const& key) { return key.GetCounter() == creature->GetSpawnId(); });
+    if (resident == event.townPopulation.end() || !event.townCasualtiesRecorded.insert(*resident).second)
         return;
 
     ++event.townCasualties;
@@ -1765,6 +1766,8 @@ void WorldEventManager::UpdateActiveEvents(uint32 diff)
                 if (event.phase != EventPhase::ENDING)
                     ProcessAutoEscalate(event, *defForEscalate, pair.first, diff);
             }
+            if (event.phase == EventPhase::ENDING)
+                continue;
 
             // Update building capture timers (AV-style towers/bunkers)
             UpdateBuildingCaptures(event, diff);

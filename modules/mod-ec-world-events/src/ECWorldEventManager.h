@@ -11,6 +11,7 @@
 
 #include "Common.h"
 #include "ObjectGuid.h"
+#include "RaidAssaultController.h"
 #include "Log.h"
 #include <map>
 #include <deque>
@@ -397,6 +398,13 @@ namespace EC
         std::set<ObjectGuid> eventBotStrategiesApplied; // Applied after far-teleport acknowledgement
         std::set<ObjectGuid> raidAttackersReleased;
         uint32 raidAdvanceElapsedMs = 0;
+
+        RaidAssault::Controller raidAssaultController;
+        bool raidObjectivesAttempted = false;
+        uint64 raidObjectiveElapsedMs = 0;
+        std::map<RaidAssault::Id, ObjectGuid> raidAssaultResidentSources;
+        std::map<RaidAssault::Id, uint32> raidAssaultBuildingSources;
+        std::set<ObjectGuid> raidAssaultHeld;
 
         // Runtime combat telemetry for spawned event NPCs
         uint32 combatScanElapsedMs = 0;      // Time since last forced aggro scan
