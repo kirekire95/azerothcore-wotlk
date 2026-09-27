@@ -1363,18 +1363,28 @@ void WorldEventManager::EvaluateRaidTownAttrition(ActiveEvent& event, EventDefin
 
     if (map)
     {
-        for (auto const& playerRef : map->GetPlayers())
+        for (ObjectGuid const& guid : event.presentDefenders)
         {
-            Player* player = playerRef.GetSource();
-            if (!player || !player->IsInWorld() || player->IsDuringRemoveFromWorld() || !player->IsAlive())
+            Player* player = ObjectAccessor::FindPlayer(guid);
+            if (!player || !player->IsInWorld() || player->IsDuringRemoveFromWorld() || !player->IsAlive() ||
+                player->GetMapId() != settlement.mapId)
                 continue;
-            if (!TeamMatchesEventFaction(player->GetTeamId(), def.defenderFaction))
-                continue;
-
             float dx = player->GetPositionX() - settlement.centerX;
             float dy = player->GetPositionY() - settlement.centerY;
             if (dx * dx + dy * dy <= settlement.populationRadius * settlement.populationRadius)
                 ++dynamicPlayers;
+        }
+
+        // Reconcile the live set against the map so missed zone hooks cannot
+        // silently change the 80% denominator.
+        for (auto const& playerRef : map->GetPlayers())
+        {
+            Player* player = playerRef.GetSource();
+            if (!player || !player->IsInWorld() || player->IsDuringRemoveFromWorld() ||
+                !TeamMatchesEventFaction(player->GetTeamId(), def.defenderFaction))
+                continue;
+            if (player->GetZoneId() == def.location.zoneId)
+                event.presentDefenders.insert(player->GetGUID());
         }
     }
 
@@ -2827,6 +2837,13 @@ void WorldEventManager::OnPlayerEnterZone(Player* player, uint32 zoneId, uint32 
 
         if (inEventZone)
         {
+            event.presentAttackers.erase(player->GetGUID());
+            event.presentDefenders.erase(player->GetGUID());
+            if (TeamMatchesEventFaction(player->GetTeamId(), def->attackerFaction))
+                event.presentAttackers.insert(player->GetGUID());
+            if (TeamMatchesEventFaction(player->GetTeamId(), def->defenderFaction))
+                event.presentDefenders.insert(player->GetGUID());
+
             // Check if already a participant
             if (event.participants.find(player->GetGUID()) == event.participants.end())
             {
@@ -2895,6 +2912,9 @@ void WorldEventManager::OnPlayerLeaveZone(Player* player, uint32 oldZoneId, uint
 
         if (wasInEventZone && !stillInEventZone)
         {
+            event.presentAttackers.erase(player->GetGUID());
+            event.presentDefenders.erase(player->GetGUID());
+
             // Check if player was a participant
             auto it = event.participants.find(player->GetGUID());
             if (it != event.participants.end())

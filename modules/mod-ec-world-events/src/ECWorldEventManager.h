@@ -373,6 +373,8 @@ namespace EC
         std::vector<std::pair<ObjectGuid, uint8>> spawnedObjects; // {GUID, despawnPhase} for spawned GameObjects
         std::vector<ObjectGuid> spawnedCreatures;   // Creatures spawned for this event
         std::map<ObjectGuid, EventParticipant> participants;
+        std::set<ObjectGuid> presentAttackers;
+        std::set<ObjectGuid> presentDefenders;
         uint32 totalKills;
         uint32 escalationLevel;  // How many times the event has escalated
         uint32 lastWarningMinutes;  // Last warning broadcast (to avoid spam)
