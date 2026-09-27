@@ -1345,20 +1345,12 @@ void WorldEventManager::EvaluateRaidTownAttrition(ActiveEvent& event, EventDefin
     if (casualtyPct >= 80 && event.outcome == EventOutcome::PENDING)
     {
         event.outcome = EventOutcome::ATTACKER_WIN;
-
-        // Defeat persists beyond the event. Damage immediately suppresses
-        // development bonuses and future income is consumed by repairs first.
-        SettlementState& damagedSettlement = m_settlements[event.settlementId];
-        damagedSettlement.damagePct = std::max<uint8>(damagedSettlement.damagePct, 80);
-        WorldDatabase.Execute(
-            "UPDATE ec_world_settlements SET damage_pct = {}, last_economy_update = CURRENT_TIMESTAMP WHERE id = {}",
-            damagedSettlement.damagePct, damagedSettlement.id);
-
-        EC_LOG_INFO("RAID '%s' settlement defeated: NPC casualties=%u/%u, live defending players=%u, "
-            "effective attrition=%u%%; settlement damage=%u%%",
-            def.name.c_str(), event.townCasualties, event.townPopulationStart, dynamicPlayers, casualtyPct,
-            damagedSettlement.damagePct);
-        TransitionToPhase(event, EventPhase::ENDING);
+        event.raidSacking = true;
+        event.raidSackingElapsedMs = 0;
+        event.raidSackTargetsStarted.clear();
+        EC_LOG_INFO("RAID '%s' settlement military defense defeated: NPC casualties=%u/%u, "
+            "live defending players=%u, effective attrition=%u%%; physical sacking begins",
+            def.name.c_str(), event.townCasualties, event.townPopulationStart, dynamicPlayers, casualtyPct);
     }
 }
 
@@ -1788,6 +1780,9 @@ void WorldEventManager::UpdateActiveEvents(uint32 diff)
             // RAID attackers rally outside the settlement, then advance in
             // staggered pathfinding waves instead of appearing inside at once.
             ProcessRaidAttackerAdvance(event, diff);
+            ProcessRaidSacking(event, diff);
+            if (event.phase == EventPhase::ENDING)
+                continue;
 
             // Process building guard respawns (barracks-style)
             ProcessBuildingGuardRespawns(event, diff);

@@ -73,20 +73,38 @@ void WorldEventManager::StartBuildingCapture(ActiveEvent& event, uint32 objectDb
         if (!map)
             map = sMapMgr->FindBaseNonInstanceMap(def->location.mapId);
 
-        uint32 aliveDefendersNearCity = CountAliveRaidDefendersNearObjective(map, *def);
-
-        if (aliveDefendersNearCity > 0)
+        GameObject* objective = map->GetGameObject(building.objectGuid);
+        uint32 localDefenders = 0;
+        if (objective)
         {
-            EC_LOG_INFO("StartBuildingCapture blocked for '%s': %u defender NPCs still alive within %.0f yards",
-                building.buildingName.c_str(), aliveDefendersNearCity, kRaidTakeoverClearRadiusYards);
-
-            if (WorldSession* session = capturer->GetSession())
+            for (ObjectGuid const& residentGuid : event.townPopulation)
             {
-                ChatHandler(session).PSendSysMessage(
-                    "Cannot burn %s yet. %u defender NPCs are still alive in the area.",
-                    building.buildingName.c_str(), aliveDefendersNearCity
-                );
+                auto [first, last] = map->GetCreatureBySpawnIdStore().equal_range(residentGuid.GetCounter());
+                for (auto resident = first; resident != last; ++resident)
+                {
+                    Creature* defender = resident->second;
+                    if (defender && defender->IsInWorld() && defender->IsAlive() &&
+                        defender->GetDistance(objective) <= 24.0f)
+                    {
+                        ++localDefenders;
+                        break;
+                    }
+                }
             }
+            for (auto const& playerRef : map->GetPlayers())
+            {
+                Player* defender = playerRef.GetSource();
+                if (defender && defender->IsInWorld() && defender->IsAlive() &&
+                    TeamMatchesEventFaction(defender->GetTeamId(), def->defenderFaction) &&
+                    defender->GetDistance(objective) <= 24.0f)
+                    ++localDefenders;
+            }
+        }
+
+        if (!objective || localDefenders > 0)
+        {
+            EC_LOG_INFO("StartBuildingCapture blocked for '%s': objective unavailable or %u local defenders remain",
+                building.buildingName.c_str(), localDefenders);
             return;
         }
     }

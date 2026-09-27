@@ -422,6 +422,9 @@ namespace EC
         std::set<ObjectGuid> townPopulation;
         std::set<ObjectGuid> townCasualtiesRecorded;
         uint8 casualtyReinforcementStage = 0;
+        bool raidSacking = false;
+        uint32 raidSackingElapsedMs = 0;
+        std::set<uint32> raidSackTargetsStarted;
     };
 
     struct SettlementState
@@ -584,6 +587,7 @@ namespace EC
         void ProcessPendingBotTeleports(ActiveEvent& event);
         void ProcessEventBotCombat(ActiveEvent& event);
         void ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 diff);
+        void ProcessRaidSacking(ActiveEvent& event, uint32 diff);
         void ProcessEventCreatureCombat(ActiveEvent& event, uint32 diff);
 
         // Building capture mechanics (AV-style towers/bunkers)

@@ -967,6 +967,7 @@ void WorldEventManager::ProcessEventBotCombat(ActiveEvent& event)
 }
 
 #include "ECRaidAssaultObjectives.inl"
+#include "ECRaidSacking.inl"
 
 void WorldEventManager::SpawnAdditionalBots(ActiveEvent& event, uint32 count, bool defendersOnly)
 {
