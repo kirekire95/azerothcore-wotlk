@@ -1834,6 +1834,7 @@ void WorldEventManager::UpdateActiveEvents(uint32 diff)
             // RAID attackers rally outside the settlement, then advance in
             // staggered pathfinding waves instead of appearing inside at once.
             ProcessRaidAttackerAdvance(event, diff);
+            ProcessRegionalReinforcements(event);
             ProcessRaidSacking(event, diff);
             if (event.phase == EventPhase::ENDING)
                 continue;
@@ -2548,7 +2549,10 @@ void WorldEventManager::TransitionToPhase(ActiveEvent& event, EventPhase newPhas
     SetupReinforcementWaves(event, newPhase);
 
     if (newPhase == EventPhase::ACTIVE)
+    {
         SnapshotRaidTownPopulation(event, *def);
+        DispatchRegionalReinforcements(event);
+    }
 
     // Spawn bots when entering ACTIVE phase (if not already spawned)
     if (newPhase == EventPhase::ACTIVE && event.spawnedBots.empty())

@@ -427,6 +427,17 @@ namespace EC
         uint32 raidSackingElapsedMs = 0;
         std::set<uint32> raidSackTargetsStarted;
         std::set<uint32> raidResourceNodesDestroyed;
+
+        struct RegionalColumn
+        {
+            uint32 sourceSettlementId = 0;
+            uint32 targetSettlementId = 0;
+            std::vector<ObjectGuid> units;
+            bool dispatched = false;
+            bool arrived = false;
+            bool failed = false;
+        };
+        std::vector<RegionalColumn> regionalColumns;
     };
 
     struct SettlementState
@@ -591,6 +602,8 @@ namespace EC
         void ProcessEventBotCombat(ActiveEvent& event);
         void ProcessRaidAttackerAdvance(ActiveEvent& event, uint32 diff);
         void ProcessRaidSacking(ActiveEvent& event, uint32 diff);
+        void DispatchRegionalReinforcements(ActiveEvent& event);
+        void ProcessRegionalReinforcements(ActiveEvent& event);
         void ProcessEventCreatureCombat(ActiveEvent& event, uint32 diff);
 
         // Building capture mechanics (AV-style towers/bunkers)

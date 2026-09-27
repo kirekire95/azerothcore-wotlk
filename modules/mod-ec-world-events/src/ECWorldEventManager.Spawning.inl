@@ -968,6 +968,7 @@ void WorldEventManager::ProcessEventBotCombat(ActiveEvent& event)
 
 #include "ECRaidAssaultObjectives.inl"
 #include "ECRaidSacking.inl"
+#include "ECRegionalReinforcements.inl"
 
 void WorldEventManager::SpawnAdditionalBots(ActiveEvent& event, uint32 count, bool defendersOnly)
 {
@@ -1531,6 +1532,7 @@ void WorldEventManager::DespawnEventBots(ActiveEvent& event)
     event.raidAssaultBuildingSources.clear();
     event.raidAssaultResourceSources.clear();
     event.raidResourceNodesDestroyed.clear();
+    event.regionalColumns.clear();
     event.raidAssaultHeld.clear();
     EC_LOG_INFO("DespawnEventBots for instance %u (%zu teleported bots, %zu pending teleports)",
         event.instanceId, event.spawnedBots.size(), event.pendingBotTeleports.size());
