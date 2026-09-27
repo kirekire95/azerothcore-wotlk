@@ -1723,9 +1723,14 @@ void WorldEventManager::SpawnEventGameObjects(ActiveEvent& event, EventPhase for
             {
                 uint16 development = settlementIt->second.developmentLevel;
                 building.maxGuards += development;
+                uint32 capacityPct = std::max<int32>(0,
+                    settlementIt->second.strategicEffects["guard_capacity_pct"]);
+                building.maxGuards += building.maxGuards * capacityPct / 100;
                 if (building.guardRespawnMs > 0 && development > 0)
                 {
                     uint32 speedPct = std::min<uint32>(50, development * 10);
+                    speedPct = std::min<uint32>(75, speedPct + std::max<int32>(0,
+                        settlementIt->second.strategicEffects["guard_response_pct"]));
                     building.guardRespawnMs = building.guardRespawnMs * (100 - speedPct) / 100;
                 }
             }

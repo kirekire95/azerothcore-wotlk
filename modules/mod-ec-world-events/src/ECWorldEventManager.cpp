@@ -1414,7 +1414,12 @@ void WorldEventManager::EvaluateRaidTownAttrition(ActiveEvent& event, EventDefin
         event.casualtyReinforcementStage = newStage;
         uint32 reinforcementCount = newStage == 1 ? 4 : 8;
         if (settlement.damagePct == 0)
+        {
             reinforcementCount += settlement.developmentLevel * (newStage == 1 ? 1 : 2);
+            auto response = settlement.strategicEffects.find("reinforcement_response_pct");
+            if (response != settlement.strategicEffects.end() && response->second > 0)
+                reinforcementCount += reinforcementCount * static_cast<uint32>(response->second) / 100;
+        }
         SpawnAdditionalBots(event, reinforcementCount, true);
         EC_LOG_INFO("RAID '%s' reached %u%% effective attrition with %u live defending players: "
             "reinforcement stage %u (%u bots)",
